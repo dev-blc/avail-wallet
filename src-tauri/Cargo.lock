@@ -480,14 +480,14 @@ dependencies = [
  "snarkvm",
  "ssss",
  "tauri",
- "tauri-build",
+ "tauri-build 2.0.0-beta.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "tauri-plugin",
  "tauri-plugin-deep-link",
  "tauri-plugin-fs",
  "tauri-plugin-http",
  "tauri-plugin-process",
  "tauri-plugin-updater",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "tid-rs",
  "tiny-bip39",
  "tokio",
@@ -5794,8 +5794,7 @@ checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 [[package]]
 name = "tauri"
 version = "2.0.0-beta.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a50fb0bdb687486415224f8be47c78993e9f3ea575ee0d5177c90d0c71842f4a"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5823,11 +5822,11 @@ dependencies = [
  "serialize-to-javascript",
  "state",
  "swift-rs",
- "tauri-build",
+ "tauri-build 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "thiserror",
  "tokio",
  "tray-icon",
@@ -5855,7 +5854,28 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tauri-winres",
+ "toml 0.8.2",
+ "walkdir",
+]
+
+[[package]]
+name = "tauri-build"
+version = "2.0.0-beta.11"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+dependencies = [
+ "anyhow",
+ "cargo_toml",
+ "dirs-next",
+ "glob",
+ "heck",
+ "json-patch",
+ "schemars",
+ "semver",
+ "serde",
+ "serde_json",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "tauri-winres",
  "toml 0.8.2",
  "walkdir",
@@ -5864,8 +5884,7 @@ dependencies = [
 [[package]]
 name = "tauri-codegen"
 version = "2.0.0-beta.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f1665f6a986842061a67cb9dcbe2fa27076c1a616f6525fc06de9d6d52838d63"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "base64 0.22.0",
  "brotli",
@@ -5880,7 +5899,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "syn 2.0.49",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "thiserror",
  "time",
  "url",
@@ -5891,15 +5910,14 @@ dependencies = [
 [[package]]
 name = "tauri-macros"
 version = "2.0.0-beta.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c1558fc42cc2a1735cfd5edb2954c735d4516f8ba31c58b7180ba8a2bc18de"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote 1.0.35",
  "syn 2.0.49",
  "tauri-codegen",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
 ]
 
 [[package]]
@@ -5914,7 +5932,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.8.2",
  "walkdir",
 ]
@@ -6016,8 +6034,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime"
 version = "2.0.0-beta.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "612e05de1382575b32b5220b546861256f630f37ac64c29cab252592861b9bd4"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "dpi",
  "gtk",
@@ -6026,7 +6043,7 @@ dependencies = [
  "raw-window-handle 0.6.0",
  "serde",
  "serde_json",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "thiserror",
  "url",
  "windows 0.54.0",
@@ -6035,8 +6052,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "2.0.0-beta.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f73672897b5396cb05c2f21b12b66ecfd4b51fae619dd35387467660d6c00fb"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "cocoa",
  "gtk",
@@ -6048,7 +6064,7 @@ dependencies = [
  "softbuffer",
  "tao",
  "tauri-runtime",
- "tauri-utils",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
  "url",
  "webkit2gtk",
  "webview2-com",
@@ -6061,6 +6077,39 @@ name = "tauri-utils"
 version = "2.0.0-beta.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0a148adf8077e1891c8b7d1c2be90c1c8eb8c7a071c35bb8edbdfe7cd9d8e23c"
+dependencies = [
+ "cargo_metadata",
+ "ctor",
+ "dunce",
+ "glob",
+ "heck",
+ "html5ever",
+ "infer",
+ "json-patch",
+ "kuchikiki",
+ "log",
+ "memchr",
+ "phf 0.11.2",
+ "proc-macro2",
+ "quote 1.0.35",
+ "regex",
+ "schemars",
+ "semver",
+ "serde",
+ "serde_json",
+ "serde_with",
+ "swift-rs",
+ "thiserror",
+ "toml 0.8.2",
+ "url",
+ "urlpattern",
+ "walkdir",
+]
+
+[[package]]
+name = "tauri-utils"
+version = "2.0.0-beta.11"
+source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
 dependencies = [
  "brotli",
  "cargo_metadata",
