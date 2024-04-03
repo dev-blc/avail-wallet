@@ -827,6 +827,7 @@ export class AleoWallet {
 		console.log('Checking window');
 		if (checkWindow('wallet-connect')) {
 			for (const win of getAll()) {
+				console.log('Checking window label', win);
 				if (win.label === 'wallet-connect') {
 					webview = win;
 				}

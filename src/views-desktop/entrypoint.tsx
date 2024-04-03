@@ -87,7 +87,7 @@ function Entrypoint() {
 
 							let error = error_;
 							const os_type = await os();
-							if (os_type !== 'linux') {
+							if (os_type !== 'linux' && os_type !== 'windows') {
 								error = JSON.parse(error_) as AvailError;
 							}
 
