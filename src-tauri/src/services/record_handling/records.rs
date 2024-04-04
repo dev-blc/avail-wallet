@@ -1,6 +1,7 @@
 use chrono::Local;
 use futures::lock::MutexGuard;
 use snarkvm::{
+    circuit::group::add,
     console::program::Itertools,
     ledger::Block,
     prelude::{ConfirmedTransaction, Network, Plaintext, Record},
@@ -16,7 +17,10 @@ use std::sync::{
 use std::time::Duration;
 
 use crate::{
-    api::aleo_client::{setup_client, setup_local_client},
+    api::{
+        aleo_client::{setup_client, setup_local_client},
+        backup_recovery::update_sync_height,
+    },
     helpers::utils::get_timestamp_from_i64,
     models::wallet_connect::records::{GetRecordsRequest, RecordFilterType, RecordsFilter},
     services::{
@@ -107,6 +111,7 @@ pub fn get_records<N: Network>(
     }
 
     let mut found_flag = false;
+
 
     for _ in (last_sync..latest_height).step_by(step_size as usize) {
         let mut blocks = api_client.get_blocks(start_height, end_height)?;
@@ -453,6 +458,7 @@ pub fn get_records<N: Network>(
                 let (_, _, _, bool_flag) =
                     match sync_transaction::<N>(transaction, height, timestamp, None, None) {
                         Ok(transaction_result) => transaction_result,
+
                         Err(e) => {
                             match handle_block_scan_failure::<N>(height) {
                                 Ok(_) => {}
