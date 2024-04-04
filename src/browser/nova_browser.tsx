@@ -270,20 +270,6 @@ const Browser: React.FC<BrowserProperties> = ({ initialUrl, theme = 'light', han
 					height='100%'
 					loading='lazy'
 					allowFullScreen
-					onLoad={(event) => {
-						console.log('loaded url zutt' + url);
-						const iframe = event.target as HTMLIFrameElement;
-
-						const doc = iframe.contentDocument || iframe.contentWindow?.document;
-						if (!doc) return;
-
-						// Add event listener to iframe
-						doc.addEventListener('error', (event) => {
-							console.error('iframe error', event);
-						});
-
-
-					}}
 					allow="clipboard-read; clipboard-write"
 
 				/>

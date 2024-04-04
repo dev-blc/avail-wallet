@@ -301,6 +301,7 @@ function Home() {
 				// Info notify user that inclusion.prover is being installed
 				pre_install_inclusion_prover();
 				setMessage('Pre installing Aleo SRS...');
+				setSuccessAlert(true)
 			}
 
 			const transferState = sessionStorage.getItem('transferState');
@@ -415,7 +416,7 @@ function Home() {
 				}}>
 					{scanInProgress
 						&& <mui.Box sx={{ width: '100%', bgcolor: '#00FFAA', height: '30px' }}>
-							<SmallText400 sx={{ color: '#111111' }}> {t('home.scan.progress')} {scanProgressPercent.toString()}%{t('home.scan.complete')}</SmallText400>
+							<SmallText400 sx={{ color: '#111111' }}> {t('home.scan.progress')} {scanProgressPercent?.toString()}%{t('home.scan.complete')}</SmallText400>
 						</mui.Box>
 					}
 					{scanInProgress
