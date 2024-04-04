@@ -491,6 +491,7 @@ dependencies = [
  "tid-rs",
  "tiny-bip39",
  "tokio",
+ "tokio-rayon",
  "ureq",
  "uuid",
  "whoami",
@@ -5794,7 +5795,7 @@ checksum = "9d0e916b1148c8e263850e1ebcbd046f333e0683c724876bb0da63ea4373dc8a"
 [[package]]
 name = "tauri"
 version = "2.0.0-beta.14"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "anyhow",
  "bytes",
@@ -5822,11 +5823,11 @@ dependencies = [
  "serialize-to-javascript",
  "state",
  "swift-rs",
- "tauri-build 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-build 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "tauri-macros",
  "tauri-runtime",
  "tauri-runtime-wry",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "thiserror",
  "tokio",
  "tray-icon",
@@ -5863,7 +5864,7 @@ dependencies = [
 [[package]]
 name = "tauri-build"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "anyhow",
  "cargo_toml",
@@ -5875,7 +5876,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "tauri-winres",
  "toml 0.8.2",
  "walkdir",
@@ -5884,7 +5885,7 @@ dependencies = [
 [[package]]
 name = "tauri-codegen"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "base64 0.22.0",
  "brotli",
@@ -5899,7 +5900,7 @@ dependencies = [
  "serde_json",
  "sha2",
  "syn 2.0.49",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "thiserror",
  "time",
  "url",
@@ -5910,14 +5911,14 @@ dependencies = [
 [[package]]
 name = "tauri-macros"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "heck",
  "proc-macro2",
  "quote 1.0.35",
  "syn 2.0.49",
  "tauri-codegen",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
 ]
 
 [[package]]
@@ -6034,7 +6035,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "dpi",
  "gtk",
@@ -6043,7 +6044,7 @@ dependencies = [
  "raw-window-handle 0.6.0",
  "serde",
  "serde_json",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "thiserror",
  "url",
  "windows 0.54.0",
@@ -6052,7 +6053,7 @@ dependencies = [
 [[package]]
 name = "tauri-runtime-wry"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "cocoa",
  "gtk",
@@ -6064,7 +6065,7 @@ dependencies = [
  "softbuffer",
  "tao",
  "tauri-runtime",
- "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?branch=fix/close-events)",
+ "tauri-utils 2.0.0-beta.11 (git+https://github.com/tauri-apps/tauri/?rev=6251645)",
  "url",
  "webkit2gtk",
  "webview2-com",
@@ -6109,7 +6110,7 @@ dependencies = [
 [[package]]
 name = "tauri-utils"
 version = "2.0.0-beta.11"
-source = "git+https://github.com/tauri-apps/tauri/?branch=fix/close-events#07c2822f7a74f1c8a074f4d7f9dec3e08d427f36"
+source = "git+https://github.com/tauri-apps/tauri/?rev=6251645#6251645acfe2df2da726f38a09373d7370bfcc86"
 dependencies = [
  "brotli",
  "cargo_metadata",
@@ -6331,6 +6332,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-rayon"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7cf33a76e0b1dd03b778f83244137bd59887abf25c0e87bc3e7071105f457693"
+dependencies = [
+ "rayon",
  "tokio",
 ]
 
