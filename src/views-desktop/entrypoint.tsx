@@ -69,11 +69,7 @@ function Entrypoint() {
 						session_and_local_auth(undefined, navigate, setAlert, setAlertMessage, true).catch(async error_ => {
 							console.log(error_);
 
-							let error = error_;
-							const osType = await os();
-							if (osType !== 'linux') {
-								error = JSON.parse(error_) as AvailError;
-							}
+							const error = error_ as AvailError;
 
 							if (error.error_type === AvailErrorType.Network) {
 								// TODO - Desktop login
