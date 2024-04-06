@@ -24,6 +24,7 @@ import PrivacyPolicy from './views-desktop/privacy-policy';
 import TermsAndConditions from './views-desktop/terms-and-conditions';
 import Oops from './views-desktop/oops';
 import Import from './views-desktop/import';
+import Dapps from './views-desktop/dapps';
 
 // global font styles
 import './index.css';
@@ -35,7 +36,6 @@ import { RecentEventsProvider } from './context/EventsContext';
 
 // Languages
 import i18n from './i18next-config';
-import FaucetView from './views-desktop/faucet';
 import Faucet from './views-desktop/faucet';
 
 // See if language is set in local storage
@@ -66,6 +66,7 @@ const router = createBrowserRouter([
 	{ path: '/privacy-policy', element: <PrivacyPolicy /> },
 	{ path: '/terms-of-service', element: <TermsAndConditions /> },
 	{ path: '/import', element: <Import /> },
+	{ path: '/dapps', element: <Dapps /> },
 ]);
 
 ReactDOM.createRoot(document.querySelector('#root')!).render(
