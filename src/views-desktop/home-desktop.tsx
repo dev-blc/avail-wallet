@@ -2,61 +2,65 @@ import * as React from 'react';
 import * as mui from '@mui/material';
 
 import Layout from './reusable/layout';
-import { useNavigate } from 'react-router-dom';
-import { listen } from '@tauri-apps/api/event';
+import {useNavigate} from 'react-router-dom';
+import {listen} from '@tauri-apps/api/event';
 
-// Services
-
-// componenets
-import SideMenu from "../components/sidebar";
-import ProfileBar from "../components/account/profile-header";
-import TransferCTAButton from "../components/buttons/transfer_cta";
-import AvailEventComponent from "../components/events/event";
-import AssetDrawer from "../components/assets/asset_drawer";
-import EventDrawer from "../components/events/event_drawer";
-import Receive from "../components/dialogs/receive";
-import ScanReAuthDialog from "../components/dialogs/scan_reauth";
-import BackupDialog from "../components/backup/backup_dialog";
-import RiseLoader from "react-spinners/RiseLoader";
+// Componenets
+import SideMenu from '../components/sidebar';
+import ProfileBar from '../components/account/profile-header';
+import TransferCTAButton from '../components/buttons/transfer_cta';
+import AvailEventComponent from '../components/events/event';
+import AssetDrawer from '../components/assets/asset_drawer';
+import EventDrawer from '../components/events/event_drawer';
+import Receive from '../components/dialogs/receive';
+import ScanReAuthDialog from '../components/dialogs/scan_reauth';
+import BackupDialog from '../components/backup/backup_dialog';
+import RiseLoader from 'react-spinners/RiseLoader';
 import SyncIcon from '@mui/icons-material/Sync';
+import WarningIcon from '@mui/icons-material/Warning';
+import NetworkDownDialog from '../components/dialogs/network_down';
 
-//state functions
-import { getName } from "../services/states/utils";
-import { getAuth } from "../services/states/utils";
-import { getAddress } from "../services/states/utils";
+// State functions
+import {getName} from '../services/states/utils';
+import {getAuth} from '../services/states/utils';
+import {getAddress} from '../services/states/utils';
 
+// Interfaces
+import {type AssetType} from '../types/assets/asset';
+import {AvailEvent} from '../services/wallet-connect/WCTypes';
+import Asset from '../components/assets/asset';
+import {ScanProgressEvent, type TxScanResponse} from '../types/events';
+import {type AvailError, AvailErrorType} from '../types/errors';
+import {type SuccinctAvailEvent} from '../types/avail-events/event';
+import {NetworkStatus} from '../services/util/network';
 
-//interfaces
-import { AssetType } from "../types/assets/asset";
-import { AvailEvent } from "../services/wallet-connect/WCTypes";
-import Asset from "../components/assets/asset";
-import { ScanProgressEvent, TxScanResponse } from "../types/events";
-import { AvailError, AvailErrorType } from "../types/errors";
-import { SuccinctAvailEvent } from "../types/avail-events/event";
+// Context hooks
+import {useScan} from '../context/ScanContext';
+import {useWalletConnectManager} from '../context/WalletConnect';
+import {useRecentEvents} from '../context/EventsContext';
 
-//context hooks
-import { useScan } from "../context/ScanContext";
-import { useWalletConnectManager } from "../context/WalletConnect";
-import { useRecentEvents } from "../context/EventsContext";
+// Typography
+import {SmallText, SmallText400, SubtitleText} from '../components/typography/typography';
 
-//typography
-import { SmallText, SmallText400, SubtitleText } from "../components/typography/typography";
-
-//alerts
-import { ErrorAlert, SuccessAlert, WarningAlert, InfoAlert } from "../components/snackbars/alerts";
-
-import { useTranslation } from "react-i18next";
-import Balance from "../components/balance";
-import { handleGetTokens } from '../services/tokens/get_tokens';
+// Alerts
 import {
-	set_first_visit, get_first_visit, set_visit_session_flag, get_visit_session_flag
+	ErrorAlert, SuccessAlert, WarningAlert, InfoAlert,
+} from '../components/snackbars/alerts';
+
+import {useTranslation} from 'react-i18next';
+import Balance from '../components/balance';
+import {handleGetTokens} from '../services/tokens/get_tokens';
+import {
+	set_first_visit, get_first_visit, set_visit_session_flag, get_visit_session_flag,
 } from '../services/storage/localStorage';
-import { os } from '../services/util/open';
-import { pre_install_inclusion_prover } from '../services/transfer/inclusion';
-import { sync_backup } from '../services/scans/backup';
-import { scan_blocks } from '../services/scans/blocks';
-import { scan_messages } from '../services/scans/encrypted_messages';
-import { getNetwork, getBackupFlag } from '../services/storage/persistent';
+import {os} from '../services/util/open';
+import {pre_install_inclusion_prover} from '../services/transfer/inclusion';
+import {sync_backup} from '../services/scans/backup';
+import {scan_blocks} from '../services/scans/blocks';
+import {scan_messages} from '../services/scans/encrypted_messages';
+import {getNetwork, getBackupFlag} from '../services/storage/persistent';
+import {getNetworkStatus} from '../services/util/network';
+
 import '../styles/animations.css';
 
 function Home() {
@@ -74,45 +78,46 @@ function Home() {
 	const [username, setUsername] = React.useState<string>('');
 	const [address, setAddress] = React.useState<string>('');
 	const [network, setNetwork] = React.useState<string>('');
+	const [networkStatus, setNetworkStatus] = React.useState<NetworkStatus>(NetworkStatus.Up);
+	const [networkDownDialog, setNetworkDownDialog] = React.useState(false);
 
-	{/* --ReAuth Dialog-- */ }
+	/* --ReAuth Dialog-- */
 	const [backupDialog, setBackupDialog] = React.useState(false);
 
-	{/* --ReAuth Dialog-- */ }
+	/* --ReAuth Dialog-- */
 	const [reAuthDialogOpen, setReAuthDialogOpen] = React.useState(false);
-	const [retryFunction, setRetryFunction] = React.useState<Promise<void>>(async () => { });
 
-	{/* --Receive Dialog-- */ }
+	/* --Receive Dialog-- */
 	const [receiveDialogOpen, setReceiveDialogOpen] = React.useState(false);
 
-	{/* --Asset Drawer-- */ }
+	/* --Asset Drawer-- */
 	const [assetDrawerOpen, setAssetDrawerOpen] = React.useState(false);
 	const [asset, setAsset] = React.useState<AssetType | undefined>();
 
-	{/* --Event Drawer-- */ }
+	/* --Event Drawer-- */
 	const [eventDrawerOpen, setEventDrawerOpen] = React.useState(false);
 	const [event, setEvent] = React.useState<SuccinctAvailEvent | undefined>();
 
-	{/* --Block Scan State-- */ }
-	const { scanInProgress, startScan, endScan } = useScan();
+	/* --Block Scan State-- */
+	const {scanInProgress, startScan, endScan} = useScan();
 
 	const [localScan, setLocalScan] = React.useState<boolean>(false);
 	const [scanProgressPercent, setScanProgressPercent] = React.useState<number>(0);
 
-	{/* -- Recent Events State -- */ }
-	const { events, fetchEvents, updateEventList } = useRecentEvents();
+	/* -- Recent Events State -- */
+	const {events, fetchEvents, updateEventList} = useRecentEvents();
 
-	{/* --Events || Balance || Assets-- */ }
+	/* --Events || Balance || Assets-- */
 	const [balance, setBalance] = React.useState<number>(0);
 	const [assets, setAssets] = React.useState<AssetType[]>([]);
 
 	const [transferState, setTransferState] = React.useState<boolean>(false);
 
-	const { t } = useTranslation();
+	const {t} = useTranslation();
 	const shouldRotate = transferState || scanInProgress || localScan;
 	const shouldRunEffect = React.useRef(true);
 
-	let rotation = mui.keyframes({
+	const rotation = mui.keyframes({
 		'0%': {
 			transform: 'rotate(0deg)',
 		},
@@ -121,7 +126,7 @@ function Home() {
 		},
 	});
 
-	const RotatingSyncIcon = mui.styled(SyncIcon)(({ theme }) => ({
+	const RotatingSyncIcon = mui.styled(SyncIcon)(({theme}) => ({
 		color: '#00FFAA',
 		width: '40px',
 		height: '30px',
@@ -145,7 +150,7 @@ function Home() {
 
 	/* --Event Listners */
 	React.useEffect(() => {
-		const unlisten_scan = listen('scan_progress', event => {
+		const unlistenScan = listen('scan_progress', event => {
 			console.log(scanInProgress);
 			console.log(event);
 			console.log(event.payload);
@@ -158,7 +163,7 @@ function Home() {
 			setScanProgressPercent(progress);
 		});
 
-		const unlisten_tx = listen('tx_state_change', event => {
+		const unlistenTx = listen('tx_state_change', event => {
 			console.log(event);
 
 			fetchEvents();
@@ -193,11 +198,16 @@ function Home() {
 		*/
 
 		return () => {
-			unlisten_scan.then(remove => {
+			unlistenScan.then(remove => {
 				remove();
+			}).catch(error => {
+				console.log(error);
 			});
-			unlisten_tx.then(remove => {
+
+			unlistenTx.then(remove => {
 				remove();
+			}).catch(error => {
+				console.log(error);
 			});
 			// Unlisten_reauth.then(remove => remove());
 		};
@@ -215,7 +225,7 @@ function Home() {
 			setLocalScan(true);
 
 			// Syncs blocks in different thread
-			scan_blocks(res.block_height, setErrorAlert, setMessage).then(res => {
+			scan_blocks(res.block_height, setErrorAlert, setMessage).then(async res => {
 				setSuccessAlert(true);
 				setMessage(t('home.messages.success.scan'));
 				setScanProgressPercent(0);
@@ -224,15 +234,11 @@ function Home() {
 
 				if (res) {
 					console.log('Res: ' + res);
-					handleGetTokens();
+					await handleGetTokens();
 					fetchEvents();
 				}
-			}).catch(async error_ => {
-				let error = error_;
-				const os_type = await os();
-				if (os_type !== 'linux') {
-					error = JSON.parse(error_) as AvailError;
-				}
+			}).catch(async err => {
+				const error = err as AvailError;
 
 				console.log('Error' + error.internal_msg);
 				endScan();
@@ -242,27 +248,37 @@ function Home() {
 
 			// Set Scanning state to false
 		} else {
-			console.log('wrong response: ' + res);
+			console.log(`Scan in progress: ${scanInProgress} Transfer state: ${transferState}`);
 		}
 	};
 
-	const handleScan = async () => {
+	const handleScan = () => {
 		// To get the initial balance and transactions
-		scan_messages().then(async res => {
-			await handleBlockScan(res);
-		}).catch(async error_ => {
-			let error = error_;
-			const os_type = await os();
-			if (os_type !== 'linux') {
-				error = JSON.parse(error_) as AvailError;
-			}
+		scan_messages().then(res => {
+			getNetworkStatus().then(async status => {
+				setNetworkStatus(status);
+				if (status === NetworkStatus.Down) {
+					setNetworkDownDialog(true);
+				}
 
+				console.log('Network status: ' + status);
+
+				await handleBlockScan(res);
+			}).catch(() => {
+				setMessage('Issue checking network status.');
+				setErrorAlert(true);
+			});
+		}).catch(async err => {
+			const error = err as AvailError;
 			console.log(error.error_type);
+
 			if (error.error_type === AvailErrorType.Network) {
 				setMessage(t('home.messages.errors.network'));
 				setErrorAlert(true);
 			} else if (error.error_type.toString() === 'Unauthorized') {
-				// TODO - Re-authenticate
+				// eslint-disable-next-line no-warning-comments
+				// TODO - Re-authenticate and fix execution on re-auth (Bala)
+
 				console.log('Unauthorized, re auth');
 
 				setReAuthDialogOpen(true);
@@ -277,10 +293,9 @@ function Home() {
 	React.useEffect(() => {
 		if (shouldRunEffect.current) {
 			handleTransferCheck();
-			const first_visit_session = get_visit_session_flag();
-			console.log('First visit session: ' + first_visit_session);
+			const firstVisitSession = get_visit_session_flag();
 
-			if (!first_visit_session) {
+			if (!firstVisitSession) {
 				getBackupFlag().then(async res => {
 					if (res) {
 						await sync_backup();
@@ -291,16 +306,21 @@ function Home() {
 				set_visit_session_flag();
 			}
 
-			const first_visit_persistent = get_first_visit();
-			console.log('First visit persistent: ' + first_visit_persistent);
+			const firstVisitPersistent = get_first_visit();
+			console.log('First visit persistent: ' + firstVisitPersistent);
 
-			if (!first_visit_persistent) {
+			if (!firstVisitPersistent) {
 				set_first_visit();
 				setBackupDialog(true);
 
 				// Info notify user that inclusion.prover is being installed
-				pre_install_inclusion_prover();
-				setMessage('Pre installing Aleo SRS...');
+				pre_install_inclusion_prover().then(() => {
+					setMessage('Pre installing Aleo SRS...');
+					setSuccessAlert(true);
+				}).catch(() => {
+					setMessage('Issue pre installing Aleo SRS');
+					setErrorAlert(true);
+				});
 			}
 
 			const transferState = sessionStorage.getItem('transferState');
@@ -342,9 +362,10 @@ function Home() {
 	}, [scanInProgress, startScan, endScan]);
 
 	const handleTransferCheck = () => {
-		const wc_flag = sessionStorage.getItem('transfer_on');
-		const transfer_state = sessionStorage.getItem('transferState');
-		if (wc_flag === 'true' || transfer_state === 'true') {
+		const wcFlag = sessionStorage.getItem('transfer_on');
+		const transferState = sessionStorage.getItem('transferState');
+
+		if (wcFlag === 'true' || transferState === 'true') {
 			setTransferState(true);
 		} else {
 			setTransferState(false);
@@ -397,6 +418,13 @@ function Home() {
 				setReAuthDialogOpen(false);
 			}} />
 
+			{/* Network Down Dialog */}
+			<NetworkDownDialog isOpen={networkDownDialog} onRequestClose={() => {
+				setNetworkDownDialog(false);
+			}} status={networkStatus}/>
+
+			{/* Side Menu */}
+
 			<SideMenu />
 			{loading
 				&& <mui.Box sx={{
@@ -415,7 +443,7 @@ function Home() {
 				}}>
 					{scanInProgress
 						&& <mui.Box sx={{ width: '100%', bgcolor: '#00FFAA', height: '30px' }}>
-							<SmallText400 sx={{ color: '#111111' }}> {t('home.scan.progress')} {scanProgressPercent?.toString()}%{t('home.scan.complete')}</SmallText400>
+							<SmallText400 sx={{color: '#111111'}}> {t('home.scan.progress')} {scanProgressPercent?.toString()}%{t('home.scan.complete')}</SmallText400>
 						</mui.Box>
 					}
 					{scanInProgress
@@ -425,8 +453,14 @@ function Home() {
 					<mui.Box sx={{
 						display: 'flex', flexDirection: 'row', justifyContent: 'flex-end', mt: '2%', mr: '5%', alignItems: 'center',
 					}}>
-						<mui.Chip label={network} variant='outlined' sx={{ mr: '2%', color: '#a3a3a3' }} />
+						<mui.Chip label={network} variant='outlined' sx={{mr: '2%', color: '#a3a3a3'}} />
 						<ProfileBar address={address} name={username}></ProfileBar>
+						{ networkStatus !== NetworkStatus.Up
+						&& <WarningIcon sx={{color: (networkStatus === NetworkStatus.Warning) ? '#FFA500' : '#FF0000', ml: '1%', cursor: 'pointer'}}
+							onClick={() => {
+								setNetworkDownDialog(true);
+							}} />
+						}
 					</mui.Box>
 
 					{/* Balance section */}

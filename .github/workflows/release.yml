@@ -76,6 +76,7 @@ jobs:
           targets: ${{ matrix.platform == 'macos_arm-latest' && 'aarch64-apple-darwin' || '' }}
 
       - name: Initialize Rust cache
+        if: matrix.platform != 'windows-latest'
         uses: swatinem/rust-cache@v2
         with:
           workspaces: './src-tauri -> target'
@@ -97,7 +98,7 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: tauri-cli
-          version: "2.0.0-beta.9"
+          version: "2.0.0-beta.12"
 
       - uses: tauri-apps/tauri-action@v0
         env:
