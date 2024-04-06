@@ -535,3 +535,10 @@ fn test_update_backup_flag() {
 fn test_update_base_url() {
     update_base_url("obscura").unwrap();
 }
+
+#[test]
+fn test_get_base_url() {
+    let base_url = get_base_url().unwrap();
+
+    print!("{}", base_url);
+}

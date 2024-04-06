@@ -11,6 +11,7 @@ import {os} from '../services/util/open';
 import WhiteHueTextField from '../components/textfields/white-hue';
 import LoginButton from '../components/buttons/login-button';
 import NewAccountDialog from '../components/dialogs/new_account';
+import LanguageSelector from '../components/select/language';
 
 // Services
 import {session_and_local_auth, get_hash} from '../services/authentication/auth';
@@ -21,9 +22,8 @@ import full_logo from '../assets/logo/desktop-full-logo.svg';
 import loginimage from '../assets/images/backgrounds/sign-up-bg.jpeg';
 
 // Typography
-import {TitleText, SmallText, BodyText} from '../components/typography/typography';
-
-// Icons
+import {TitleText, SmallText, BodyText, SmallText400} from '../components/typography/typography';
+import {Languages} from '../types/languages';
 
 // Errors
 import {type AvailError} from '../types/errors';
@@ -46,6 +46,7 @@ function Login() {
 	const [warning, setWarning] = React.useState<boolean>(false);
 
 	const [message, setMessage] = React.useState<string>('');
+	const [language, setLanguage] = React.useState(Languages.English);
 
 	const navigate = useNavigate();
 
@@ -105,8 +106,14 @@ function Login() {
 
 				{/* Right side contents in a Grid */}
 				<mui.Grid width={'46%'} sx={{marginTop: lg ? '7%' : (md ? '5.5%' : '3%'), ml: lg ? '4%' : (md ? '5%' : '7%')}}>
-
-					<img src={full_logo} style={{width: md ? '40%' : '50%', height: 'auto', marginLeft: md ? '-20px' : '-10px'}} />
+					<mui.Box sx={{
+						display: 'flex', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+					}}>
+						<img src={full_logo} style={{width: md ? '40%' : '50%', height: 'auto', marginLeft: md ? '-20px' : '-10px'}} />
+						<mui.Box sx={{ display: 'flex', flexDirection: 'column', mr: '4%' }}>
+							<LanguageSelector language={language} setLanguage={setLanguage} sx={{ alignSelf: 'flex-end', mr: '5%' }} />
+						</mui.Box>
+					</mui.Box>
 					<mui.Box sx={{
 						display: 'flex', flexDirection: 'row', width: '90%', mt: '-20px',
 					}}>
@@ -173,7 +180,7 @@ function Login() {
 						}} onClick={() => {
 							setNewAccountDialog(true);
 						}}>
-							<BodyText sx={{fontWeight: '700', wordWrap: 'break-word', textTransform: 'none'}}>New Account</BodyText>
+							<SmallText400 sx={{fontWeight: '700', wordWrap: 'break-word', textTransform: 'none'}}>New Account</SmallText400>
 						</mui.Button>
 					</mui.Box>
 				</mui.Grid>
