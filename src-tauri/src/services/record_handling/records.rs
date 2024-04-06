@@ -138,7 +138,6 @@ pub fn get_records<N: Network>(
                         "Error scanning deployment transactions.".to_string(),
                     ));
                 }
-
             }
 
             for transaction in transactions.iter() {
