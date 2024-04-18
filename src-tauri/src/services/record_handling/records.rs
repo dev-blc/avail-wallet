@@ -750,6 +750,66 @@ async fn split_records<N: Network>(
 }
 */
 
+use snarkvm::prelude::{Field, Group, Scalar};
+use serde_json::Value;
+
+fn is_owner_direct<N:Network>(
+    address_x_coordinate: Field<N>,
+    view_key_scalar: Scalar<N>,
+    record_nonce: Group<N>,
+    record_owner_x_coordinate: Field<N>
+) -> bool {
+    let record_view_key = (record_nonce * view_key_scalar).to_x_coordinate();
+    // Compute the 0th randomizer.
+    let randomizer = N::hash_many_psd8(&[N::encryption_domain(), record_view_key], 1);
+    // Decrypt the owner.
+    let owner_x = record_owner_x_coordinate - &randomizer[0];
+    // Check if the address is the owner.
+    owner_x == address_x_coordinate
+}
+
+pub async fn get_records_new<N: Network>(
+    start: u32,
+    end: u32
+) -> AvailResult<()> {
+    // Prepare request url
+    let api_key = "bcde0fb4-a4fa-4e84-affd-ab70b5e477db";
+    let url = format!(
+        "https://aleo-testnet3.dev.obscura.network/api/{}/record/ownership/heightRange?start={}&end={}", 
+        api_key, 
+        start, 
+        end
+    );
+
+    // Setup client and make request
+    let client = tauri_plugin_http::reqwest::Client::new();
+    let response = client.get(url).send().await?;
+
+    // TEST: Print response
+    println!("response: {:?}\n", response);
+
+    // Get content from response
+    let content = response.text().await?;
+    // TEST: Print response content
+    println!("content: {:?}\n", content);
+
+    // Parse the content as JSON
+    let parsed: Value = serde_json::from_str(&content)?;
+    println!("parsed: {:?}\n", parsed);
+
+    if let Some(array) = parsed.as_array() {
+        for record in array {
+            println!("record: {:?}\n", record);
+            let nonce_x_str = record.get("nonce_x").unwrap();
+            let nonce_x_u128 = nonce_x_str.as_str().unwrap().replace("field", "");
+            println!("nonce_x: {:?}\n", nonce_x_u128);
+            // let nonce_x = Field::<N>::from_u128(nonce_x_u128);
+        }
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod record_handling_test {
     use super::*;
@@ -757,7 +817,15 @@ mod record_handling_test {
     use snarkvm::prelude::{AleoID, Field, Testnet3};
     use std::str::FromStr;
 
-    #[test]
+    #[tokio::test]
+    async fn test_get_records_new() {
+        let current_block: u32 = 2081597;
+        let start: u32 = current_block - 100;
+        let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block).await;
+
+        assert!(success.is_ok());
+    }
+
     fn test_get_transaction() {
         let start = 500527u32;
         let end = 500531u32;
