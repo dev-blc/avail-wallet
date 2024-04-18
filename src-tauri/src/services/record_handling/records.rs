@@ -1,7 +1,7 @@
 use chrono::Local;
 use futures::lock::MutexGuard;
 use snarkvm::{
-    circuit::group::add,
+    circuit::{group::add, ViewKey},
     console::program::Itertools,
     ledger::Block,
     prelude::{ConfirmedTransaction, Network, Plaintext, Record},
@@ -750,7 +750,7 @@ async fn split_records<N: Network>(
 }
 */
 
-use snarkvm::prelude::{Field, Group, Scalar};
+use snarkvm::prelude::{ToField, FromStr, ViewKey as ViewKeyScan, Parser, Field, Group, Scalar};
 use serde_json::Value;
 
 fn is_owner_direct<N:Network>(
@@ -770,7 +770,8 @@ fn is_owner_direct<N:Network>(
 
 pub async fn get_records_new<N: Network>(
     start: u32,
-    end: u32
+    end: u32,
+    view_key_str: &str
 ) -> AvailResult<()> {
     // Prepare request url
     let api_key = "bcde0fb4-a4fa-4e84-affd-ab70b5e477db";
@@ -800,10 +801,30 @@ pub async fn get_records_new<N: Network>(
     if let Some(array) = parsed.as_array() {
         for record in array {
             println!("record: {:?}\n", record);
-            let nonce_x_str = record.get("nonce_x").unwrap();
-            let nonce_x_u128 = nonce_x_str.as_str().unwrap().replace("field", "");
-            println!("nonce_x: {:?}\n", nonce_x_u128);
-            // let nonce_x = Field::<N>::from_u128(nonce_x_u128);
+            // Get values from record
+            let nonce_x_val = record.get("nonce_x").expect("No nonce_x found in record value");
+            let nonce_y_val = record.get("nonce_y").expect("No nonce_y found in record value");
+            let owner_x_val = record.get("owner_x").expect("No owner_x found in record value");
+
+            // Parse values to string
+            let nonce_x_str = nonce_x_val.as_str().unwrap();
+            let nonce_y_str = nonce_y_val.as_str().unwrap();
+            let owner_x_str = owner_x_val.as_str().unwrap();
+            println!("nonce_x: {:?}\nowner_x: {:?}\n", nonce_x_str, owner_x_str);
+
+            // Parse string to primitive types
+            let (_, nonce_x) = Field::<N>::parse(&nonce_x_str).expect("Failed to parse nonce_x to Field");
+            let (_, nonce_y) = Field::<N>::parse(&nonce_y_str).expect("Failed to parse nonce_y to Field");
+            let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
+
+            let (_, owner_x) = Field::<N>::parse(&owner_x_str).expect("Failed to parse owner_x to Field");
+
+            let view_key = ViewKeyScan::<N>::from_str(view_key_str).expect("Failed to parse view_key to ViewKey");
+            let address = view_key.to_address().to_field().expect("Failed to convert view_key to address");
+
+            if (is_owner_direct(address, *view_key, nonce, owner_x)) {
+                println!("Found record owned!{}\n", record);
+            };
         }
     }
 
@@ -819,9 +840,10 @@ mod record_handling_test {
 
     #[tokio::test]
     async fn test_get_records_new() {
-        let current_block: u32 = 2081597;
-        let start: u32 = current_block - 100;
-        let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block).await;
+        let view_key = env!("VIEW_KEY");
+        let current_block: u32 = 2087986;
+        let start: u32 = current_block - 10;
+        let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block, view_key).await;
 
         assert!(success.is_ok());
     }
