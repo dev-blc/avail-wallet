@@ -55,7 +55,7 @@ impl LocalClient {
 	}
 
 	// Return a transaction
-	async fn get_transaction_from_transition(&self, transition_id: &str) -> String {
+	async fn get_transaction_id_from_transition(&self, transition_id: &str) -> String {
 		let url: String = format!{
 			"{}/v1/{}/{}/find/transactionID/{transition_id}",
 			self.base_url, self.api_key, self.network_id
@@ -78,6 +78,32 @@ impl LocalClient {
 
 		// Get content from response
 		let content = response.text().await.unwrap();
+
+		// Parse the content as JSON
+		serde_json::from_str::<Value>(&content).unwrap()
+	}
+
+	async fn get_block_from_transaction_id(&self, transaction_id: &str) -> Value {
+		let mut url = format!(
+			"{}/v1/{}/{}/find/blockHash/{transaction_id}",
+			self.base_url, self.api_key, self.network_id
+		);
+		let mut response = self.client.get(url).send().await.unwrap();
+
+		// Get content from response
+		let mut content = response.text().await.unwrap();
+
+		// Parse the content as JSON
+		let block_hash = serde_json::from_str::<String>(&content).unwrap();
+
+		url = format!(
+			"{}/v1/{}/{}/block/{block_hash}",
+			self.base_url, self.api_key, self.network_id
+		);
+		response = self.client.get(url).send().await.unwrap();
+
+		// Get content from response
+		content = response.text().await.unwrap();
 
 		// Parse the content as JSON
 		serde_json::from_str::<Value>(&content).unwrap()
@@ -137,10 +163,10 @@ pub async fn get_records_new<N: Network>(
 			client.change_base_url("https://aleo-testnet3.obscura.network".to_string());
 
 			// Get transaction ID and transaction
-			let transaction_id = client.get_transaction_from_transition(transition_id).await;
+			let transaction_id = client.get_transaction_id_from_transition(transition_id).await;
 			println!("Transaction ID: {:?}\n", transaction_id);
-			let transaction = client.get_transaction(&transaction_id).await;
-			print!("Transaction: {:?}\n", transaction);
+			let block = client.get_block_from_transaction_id(&transaction_id).await;
+			print!("Transaction: {:?}\n", block);
 		};
 	}
 
