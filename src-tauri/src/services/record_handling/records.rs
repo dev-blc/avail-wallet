@@ -1,7 +1,7 @@
 use chrono::Local;
 use futures::lock::MutexGuard;
 use snarkvm::{
-    circuit::{group::add, ViewKey},
+    circuit::group::add,
     console::program::Itertools,
     ledger::Block,
     prelude::{ConfirmedTransaction, Network, Plaintext, Record},
@@ -750,87 +750,6 @@ async fn split_records<N: Network>(
 }
 */
 
-use snarkvm::prelude::{ToField, FromStr, ViewKey as ViewKeyScan, Parser, Field, Group, Scalar};
-use serde_json::Value;
-
-fn is_owner_direct<N:Network>(
-    address_x_coordinate: Field<N>,
-    view_key_scalar: Scalar<N>,
-    record_nonce: Group<N>,
-    record_owner_x_coordinate: Field<N>
-) -> bool {
-    let record_view_key = (record_nonce * view_key_scalar).to_x_coordinate();
-    // Compute the 0th randomizer.
-    let randomizer = N::hash_many_psd8(&[N::encryption_domain(), record_view_key], 1);
-    // Decrypt the owner.
-    let owner_x = record_owner_x_coordinate - &randomizer[0];
-    // Check if the address is the owner.
-    owner_x == address_x_coordinate
-}
-
-pub async fn get_records_new<N: Network>(
-    start: u32,
-    end: u32,
-    view_key_str: &str
-) -> AvailResult<()> {
-    // Prepare request url
-    let api_key = "bcde0fb4-a4fa-4e84-affd-ab70b5e477db";
-    let url = format!(
-        "https://aleo-testnet3.dev.obscura.network/api/{}/record/ownership/heightRange?start={}&end={}", 
-        api_key, 
-        start, 
-        end
-    );
-
-    // Setup client and make request
-    let client = tauri_plugin_http::reqwest::Client::new();
-    let response = client.get(url).send().await?;
-
-    // TEST: Print response
-    println!("response: {:?}\n", response);
-
-    // Get content from response
-    let content = response.text().await?;
-    // TEST: Print response content
-    println!("content: {:?}\n", content);
-
-    // Parse the content as JSON
-    let parsed: Value = serde_json::from_str(&content)?;
-    println!("parsed: {:?}\n", parsed);
-
-    if let Some(array) = parsed.as_array() {
-        for record in array {
-            println!("record: {:?}\n", record);
-            // Get values from record
-            let nonce_x_val = record.get("nonce_x").expect("No nonce_x found in record value");
-            let nonce_y_val = record.get("nonce_y").expect("No nonce_y found in record value");
-            let owner_x_val = record.get("owner_x").expect("No owner_x found in record value");
-
-            // Parse values to string
-            let nonce_x_str = nonce_x_val.as_str().unwrap();
-            let nonce_y_str = nonce_y_val.as_str().unwrap();
-            let owner_x_str = owner_x_val.as_str().unwrap();
-            println!("nonce_x: {:?}\nowner_x: {:?}\n", nonce_x_str, owner_x_str);
-
-            // Parse string to primitive types
-            let (_, nonce_x) = Field::<N>::parse(&nonce_x_str).expect("Failed to parse nonce_x to Field");
-            let (_, nonce_y) = Field::<N>::parse(&nonce_y_str).expect("Failed to parse nonce_y to Field");
-            let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
-
-            let (_, owner_x) = Field::<N>::parse(&owner_x_str).expect("Failed to parse owner_x to Field");
-
-            let view_key = ViewKeyScan::<N>::from_str(view_key_str).expect("Failed to parse view_key to ViewKey");
-            let address = view_key.to_address().to_field().expect("Failed to convert view_key to address");
-
-            if (is_owner_direct(address, *view_key, nonce, owner_x)) {
-                println!("Found record owned!{}\n", record);
-            };
-        }
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod record_handling_test {
     use super::*;
@@ -838,16 +757,7 @@ mod record_handling_test {
     use snarkvm::prelude::{AleoID, Field, Testnet3};
     use std::str::FromStr;
 
-    #[tokio::test]
-    async fn test_get_records_new() {
-        let view_key = env!("VIEW_KEY");
-        let current_block: u32 = 2087986;
-        let start: u32 = current_block - 10;
-        let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block, view_key).await;
-
-        assert!(success.is_ok());
-    }
-
+    #[test]
     fn test_get_transaction() {
         let start = 500527u32;
         let end = 500531u32;
