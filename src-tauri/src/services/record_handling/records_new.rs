@@ -1,8 +1,7 @@
-use avail_common::{aleo_tools::api, errors::{AvailError, AvailResult}};
+use avail_common::errors::{AvailError, AvailResult};
 use snarkvm::prelude::{
-	Network, Testnet3, Transaction, ToField, FromStr, ViewKey, Parser, Field, Group, Scalar
+	Network, Testnet3, ToField, FromStr, ViewKey, Parser, Field, Group, Scalar
 };
-use crate::api::{aleo_client::setup_client, client};
 use serde_json::Value;
 use tauri_plugin_http::reqwest::Client;
 
@@ -190,7 +189,7 @@ async fn get_owned_transactions(transitions: Vec<String>, client: &LocalClient) 
 				if (id == transition && !transactions.contains(&txn)) {
 					transactions.push(txn.clone());
 					println!("Found equal ID:\n{} == {}\n", id, transition);
-					println!("Found transaction:\n{}\n", txn);
+					println!("Pushed transaction:\n{}\n", txn);
 				}
 			}
 		}
