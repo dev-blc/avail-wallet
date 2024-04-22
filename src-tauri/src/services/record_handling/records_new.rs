@@ -45,7 +45,6 @@ impl LocalClient {
 			end
 		);
 		let response = self.client.get(url).send().await.unwrap();
-		println!("response: {:?}\n", response);
 
 		// Get content from response
 		let content = response.text().await.unwrap();
@@ -125,6 +124,79 @@ fn is_owner_direct<N:Network>(
     owner_x == address_x_coordinate
 }
 
+fn owned_records_to_transitions<N: Network>(view_key_str: &str, records: Vec<Value>) -> Vec<String> {
+	let mut transitions = Vec::new();
+	for record in records {
+		println!("record: {:?}\n", record);
+
+		// Get values from record and cast to primitive types
+		let (_, nonce_x) = Field::<N>::parse(record.get("nonce_x").unwrap().as_str().unwrap()).unwrap();
+		let (_, nonce_y) = Field::<N>::parse(record.get("nonce_y").unwrap().as_str().unwrap()).unwrap();
+		let (_, owner_x) = Field::<N>::parse(record.get("owner_x").unwrap().as_str().unwrap()).unwrap();
+		let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
+		let view_key = ViewKey::<N>::from_str(view_key_str).unwrap();
+		let address = view_key.to_address().to_field().unwrap();
+
+		// Check if the record is owned
+		if (is_owner_direct(address, *view_key, nonce, owner_x)) {
+			println!("Found record owned:\n{}\n", record);
+
+			// Get transition ID
+			let transition_id = record.get("transition_id").unwrap().as_str().unwrap();
+			transitions.push(transition_id.to_string());
+		};
+	}
+	transitions
+}
+
+async fn get_owned_transactions(transitions: Vec<String>, client: &LocalClient) -> Vec<Value> {
+	let mut transactions: Vec<Value> = Vec::new();
+	let mut block_heights: Vec<u64> = Vec::new();
+	for transition in transitions {
+		// Get block
+		let transaction_id = client.get_transaction_id_from_transition(&transition).await;
+		let block = client.get_block_from_transaction_id(&transaction_id).await;
+
+		// Get block height
+		let block_height = block
+			.get("header").unwrap()
+			.get("metadata").unwrap()
+			.get("height").unwrap()
+			.as_u64().unwrap();
+
+		// Check if block already scanned
+		if (block_heights.contains(&block_height)) {
+			continue;
+		} else {
+			block_heights.push(block_height);
+		}
+
+		// Get transactions from block
+		let local_transactions = block.get("transactions").unwrap().as_array().unwrap();
+		for txn in local_transactions {
+			// Get transitions from transaction
+			let local_transitions = txn
+				.get("transaction").unwrap()
+				.get("execution").unwrap()
+				.get("transitions").unwrap()
+				.as_array().unwrap();
+
+			for tsn in local_transitions {
+				let id = tsn
+					.get("id").unwrap()
+					.as_str().unwrap();
+
+				// Check if it's owned transition and if already included in transactions array
+				if (id == transition && !transactions.contains(&txn)) {
+					transactions.push(txn.clone());
+					println!("Found equal ID:\n{} == {}\n", id, transition);
+					println!("Found transaction:\n{}\n", txn);
+				}
+			}
+		}
+	}
+	transactions
+}
 pub async fn get_records_new<N: Network>(
     start: u32,
     end: u32,
@@ -139,36 +211,16 @@ pub async fn get_records_new<N: Network>(
 	);
     let records = client.get_records(start, end).await;
 
-	for record in records {
-		println!("record: {:?}\n", record);
+	// Get transitions from owned records
+	let transitions = owned_records_to_transitions::<N>(view_key_str, records);
 
-		// Get values from record and cast to primitive types
-		let (_, nonce_x) = Field::<N>::parse(record.get("nonce_x").unwrap().as_str().unwrap()).unwrap();
-		let (_, nonce_y) = Field::<N>::parse(record.get("nonce_y").unwrap().as_str().unwrap()).unwrap();
-		let (_, owner_x) = Field::<N>::parse(record.get("owner_x").unwrap().as_str().unwrap()).unwrap();
-		let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
-		let view_key = ViewKey::<N>::from_str(view_key_str).unwrap();
-		let address = view_key.to_address().to_field().unwrap();
+	// Different API key for getting transaction
+	api_key = env!("TESTNET_API_OBSCURA").to_string();
+	client.change_api_key(api_key);
+	client.change_base_url("https://aleo-testnet3.obscura.network".to_string());
 
-		// Check if the record is owned
-		if (is_owner_direct(address, *view_key, nonce, owner_x)) {
-			println!("Found record owned!{}\n", record);
-
-			// Get transition ID
-			let transition_id = record.get("transition_id").unwrap().as_str().unwrap();
-
-			// Different API key for getting transaction 
-			api_key = env!("TESTNET_API_OBSCURA").to_string();
-			client.change_api_key(api_key);
-			client.change_base_url("https://aleo-testnet3.obscura.network".to_string());
-
-			// Get transaction ID and transaction
-			let transaction_id = client.get_transaction_id_from_transition(transition_id).await;
-			println!("Transaction ID: {:?}\n", transaction_id);
-			let block = client.get_block_from_transaction_id(&transaction_id).await;
-			print!("Transaction: {:?}\n", block);
-		};
-	}
+	// Get owned transactions
+	let transactions = get_owned_transactions(transitions, &client).await;
 
     Ok(())
 }
