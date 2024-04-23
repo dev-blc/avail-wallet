@@ -1,10 +1,23 @@
 use avail_common::errors::{AvailError, AvailResult};
+use crate::services::local_storage::session::view::VIEWSESSION;
 use snarkvm::prelude::{
 	Network, Testnet3, ToField, FromStr, ViewKey, Parser, Field, Group, Scalar
 };
 use serde_json::Value;
 use tauri_plugin_http::reqwest::Client;
+use availx_lib::services::record_handling::utils;
+use utils::sync_transaction;
 
+/**
+ * LocalClient struct
+ *
+ * A struct that holds the client for the API requests.
+ *
+ * client: The client for the API requests.
+ * api_key: The API
+ * base_url: The base URL for the API requests.
+ * network_id: The network ID for the API requests.
+ */
 struct LocalClient {
 	client: Client,
 	api_key: String,
@@ -12,6 +25,9 @@ struct LocalClient {
 	network_id: String
 }
 
+/**
+ * Implementation of LocalClient
+ */
 impl LocalClient {
 	fn new(api_key: String, base_url: String, network_id: String) -> Self {
 		LocalClient {
@@ -108,6 +124,14 @@ impl LocalClient {
 	}
 }
 
+/**
+ * Check if the address is the owner of the record.
+ * @param address_x_coordinate The x-coordinate of the address.
+ * @param view_key_scalar The scalar of the view key.
+ * @param record_nonce The nonce of the record.
+ * @param record_owner_x_coordinate The x-coordinate of the owner.
+ * @return True if the address is the owner of the record, false otherwise.
+ */
 fn is_owner_direct<N:Network>(
     address_x_coordinate: Field<N>,
     view_key_scalar: Scalar<N>,
@@ -123,7 +147,12 @@ fn is_owner_direct<N:Network>(
     owner_x == address_x_coordinate
 }
 
-fn owned_records_to_transitions<N: Network>(view_key_str: &str, records: Vec<Value>) -> Vec<String> {
+/**
+ * Convert owned records to transitions.
+ * @param records The records to convert.
+ * @return The transitions.
+ */
+fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> {
 	let mut transitions = Vec::new();
 	for record in records {
 		println!("record: {:?}\n", record);
@@ -133,7 +162,7 @@ fn owned_records_to_transitions<N: Network>(view_key_str: &str, records: Vec<Val
 		let (_, nonce_y) = Field::<N>::parse(record.get("nonce_y").unwrap().as_str().unwrap()).unwrap();
 		let (_, owner_x) = Field::<N>::parse(record.get("owner_x").unwrap().as_str().unwrap()).unwrap();
 		let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
-		let view_key = ViewKey::<N>::from_str(view_key_str).unwrap();
+		let view_key = VIEWSESSION.get_instance::<N>().unwrap();
 		let address = view_key.to_address().to_field().unwrap();
 
 		// Check if the record is owned
@@ -148,6 +177,12 @@ fn owned_records_to_transitions<N: Network>(view_key_str: &str, records: Vec<Val
 	transitions
 }
 
+/**
+ * Get owned transactions.
+ * @param transitions The transitions to get the transactions from.
+ * @param client The client for the API requests.
+ * @return The owned transactions.
+ */
 async fn get_owned_transactions(transitions: Vec<String>, client: &LocalClient) -> Vec<Value> {
 	let mut transactions: Vec<Value> = Vec::new();
 	let mut block_heights: Vec<u64> = Vec::new();
@@ -196,10 +231,16 @@ async fn get_owned_transactions(transitions: Vec<String>, client: &LocalClient) 
 	}
 	transactions
 }
+
+/**
+ * Get records from the API and convert them to transitions.
+ * @param start The start block.
+ * @param end The end block.
+ * @return The result of the operation.
+ */
 pub async fn get_records_new<N: Network>(
     start: u32,
-    end: u32,
-    view_key_str: &str
+    end: u32
 ) -> AvailResult<()> {
     // Prepare API client and get records
     let mut api_key: String = "bcde0fb4-a4fa-4e84-affd-ab70b5e477db".to_string();
@@ -211,7 +252,7 @@ pub async fn get_records_new<N: Network>(
     let records = client.get_records(start, end).await;
 
 	// Get transitions from owned records
-	let transitions = owned_records_to_transitions::<N>(view_key_str, records);
+	let transitions = owned_records_to_transitions::<N>(records);
 
 	// Different API key for getting transaction
 	api_key = env!("TESTNET_API_OBSCURA").to_string();
@@ -231,9 +272,10 @@ mod record_handling_tests {
 	#[tokio::test]
 	async fn test_get_records_new() {
 		let view_key = env!("VIEW_KEY");
+		VIEWSESSION.set_view_session(view_key).unwrap();
 		let current_block: u32 = 2087986;
 		let start: u32 = current_block - 10;
-		let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block, view_key).await;
+		let success: Result<(), AvailError> = get_records_new::<Testnet3>(start, current_block).await;
 
 		assert!(success.is_ok());
 	}
