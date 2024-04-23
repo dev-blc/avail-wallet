@@ -61,7 +61,6 @@ const router = createBrowserRouter([
 	{ path: '/activity', element: <Activity /> },
 	{ path: '/browser', element: <BrowserView /> },
 	{ path: '/faucet', element: <Faucet /> },
-	{ path: '/support', element: <a href='discord://EeuhRNwx' /> },
 	{ path: '/nfts', element: <Nfts /> },
 	{ path: '/privacy-policy', element: <PrivacyPolicy /> },
 	{ path: '/terms-of-service', element: <TermsAndConditions /> },

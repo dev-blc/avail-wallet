@@ -206,7 +206,7 @@ export default function SideMenu() {
 			}
 
 			case 6: {
-				open_url('https://discord.gg/avail-1140618884764942386').then(res => {
+				open_url('https://discord.gg/availwallet').then(res => {
 					console.log(res);
 				}).catch(error => {
 					console.log(error);
