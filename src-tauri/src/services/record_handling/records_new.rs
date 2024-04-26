@@ -1,6 +1,6 @@
 use avail_common::errors::AvailResult;
 use chrono::{DateTime, Local};
-use crate::services::local_storage::session::view::VIEWSESSION;
+use crate::services::local_storage::{session::view::VIEWSESSION, storage_api::transaction::get_unconfirmed_and_failed_transaction_ids};
 use snarkvm::prelude::{
 	Network, Testnet3, ToField, FromStr, Parser, Field, Group, Scalar, Transaction, Serialize
 };
@@ -218,8 +218,8 @@ fn add_to_sync_txn_params<N: Network>(
 ) {
 	// Get transactions from block
 	let transactions = block.get("transactions").unwrap().as_array().unwrap();
-	let mut included_txn: Vec<Value> = Vec::new();
 
+	// Filter owned transaction only
 	for txn in transactions {
 		// Get transitions from transaction
 		let local_transitions = txn
@@ -233,10 +233,9 @@ fn add_to_sync_txn_params<N: Network>(
 				.get("id").unwrap()
 				.as_str().unwrap();
 
-			// Check if it's owned transition and if already included in transactions array
-			if (id == transition && !included_txn.contains(txn)) {
+			// Check if it's owned transition
+			if (id == transition) {
 				println!("Found new owned transition:\n{} == {}\n", id, transition);
-				included_txn.push(txn.clone());
 				sync_txn_params.push(
 					SyncTxnParams {
 						transaction: convert_to_confirmed_transaction::<N>(txn.clone()),
@@ -280,12 +279,6 @@ async fn convert_to_sync_txn_params<N: Network>(
 			.get("metadata").unwrap()
 			.get("timestamp").unwrap()
 			.as_i64().unwrap();
-
-		// Skip if block already scanned
-		let scanned = sync_txn_params.iter().any(|s| s.block_height == block_height);
-		if (scanned) {
-			continue;
-		}
 		add_to_sync_txn_params(&block, block_height, timestamp, &transition, &mut sync_txn_params);
 	}
 	sync_txn_params
@@ -334,6 +327,13 @@ pub async fn get_sync_txn_params<N: Network>(records: Vec<Value>) -> AvailResult
 	let sync_txn_params = convert_to_sync_txn_params(transitions, &client).await;
 
 	Ok((sync_txn_params))
+}
+
+/// WIP
+pub fn check_unconfirmed_transactions() -> AvailResult<()> {
+	let unconfimred_and_failed_transactions = get_unconfirmed_and_failed_transaction_ids::<Testnet3>()?;
+
+	Ok(())
 }
 
 #[cfg(test)]
@@ -392,6 +392,8 @@ mod record_handling_tests {
 			Vec<EncryptedData>,
 			bool,
 		)>> = Vec::new();
+
+		// Sync transactions
 		for params in sync_txn_params {
 			res.push(sync_transaction::<Testnet3>(
 				&params.transaction,
@@ -401,7 +403,6 @@ mod record_handling_tests {
 				None
 			));
 		}
-
 		assert!(res[0].is_ok());
 	}
 }
