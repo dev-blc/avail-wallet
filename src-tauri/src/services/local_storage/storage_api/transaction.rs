@@ -185,7 +185,7 @@ pub fn get_transaction_ids<N: Network>() -> AvailResult<Vec<N::TransactionID>> {
 }
 
 pub fn get_unconfirmed_and_failed_transaction_ids<N: Network>(
-) -> AvailResult<Vec<(N::TransactionID, String)>> {
+) -> AvailResult<Vec<(N::TransactionID, String, u32)>> {
     let address = get_address::<N>()?;
     let network = get_network()?;
 
@@ -202,7 +202,7 @@ pub fn get_unconfirmed_and_failed_transaction_ids<N: Network>(
 
     let encrypted_transactions = handle_encrypted_data_query(&query)?;
 
-    let mut transaction_ids: Vec<(N::TransactionID, String)> = Vec::new();
+    let mut transaction_ids: Vec<(N::TransactionID, String, u32)> = Vec::new();
 
     for encrypted_transaction in encrypted_transactions {
         let encrypted_struct = encrypted_transaction.to_enrypted_struct::<N>()?;
@@ -211,25 +211,40 @@ pub fn get_unconfirmed_and_failed_transaction_ids<N: Network>(
                 let transition: TransitionPointer<N> =
                     encrypted_struct.decrypt(VIEWSESSION.get_instance::<N>()?)?;
                 if let Some(id) = encrypted_transaction.id {
-                    transaction_ids.push((transition.transaction_id, id.to_string()));
+                    transaction_ids.push((
+                        transition.transaction_id,
+                        id.to_string(),
+                        transition.block_height,
+                    ));
                 }
             }
             EncryptedDataTypeCommon::Transaction => {
                 let tx_exec: TransactionPointer<N> =
                     encrypted_struct.decrypt(VIEWSESSION.get_instance::<N>()?)?;
 
+                let block_height = match tx_exec.block_height() {
+                    Some(height) => height,
+                    None => 0,
+                };
+
                 if let Some(tx_id) = tx_exec.transaction_id() {
                     if let Some(id) = encrypted_transaction.id {
-                        transaction_ids.push((tx_id, id.to_string()));
+                        transaction_ids.push((tx_id, id.to_string(), block_height));
                     }
                 }
             }
             EncryptedDataTypeCommon::Deployment => {
                 let deployment: DeploymentPointer<N> =
                     encrypted_struct.decrypt(VIEWSESSION.get_instance::<N>()?)?;
+
+                let block_height = match deployment.block_height {
+                    Some(height) => height,
+                    None => 0,
+                };
+
                 if let Some(tx_id) = deployment.id {
                     if let Some(id) = encrypted_transaction.id {
-                        transaction_ids.push((tx_id, id.to_string()));
+                        transaction_ids.push((tx_id, id.to_string(), block_height));
                     }
                 }
             }

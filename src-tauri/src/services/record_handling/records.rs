@@ -21,7 +21,7 @@ use crate::{
         aleo_client::{setup_client, setup_local_client},
         backup_recovery::update_sync_height,
     },
-    helpers::utils::get_timestamp_from_i64,
+    helpers::utils::{get_timestamp_from_i64, get_timestamp_from_i64_utc},
     models::wallet_connect::records::{GetRecordsRequest, RecordFilterType, RecordsFilter},
     services::{
         local_storage::{
@@ -54,6 +54,304 @@ use avail_common::{
     models::encrypted_data::{EncryptedData, RecordTypeCommon, TransactionState},
 };
 
+/**
+ * Convert pending transactions to failed if they have expired.
+ * Convert pending transactions to confirmed if they have been confirmed.
+ * Convert pending transactions to rejected if they have been rejected.
+ * Convert failed transactions to confirmed if they have been confirmed.
+ * Convert failed transactions to rejected if they have been rejected.
+ */
+pub fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
+    let view_key = VIEWSESSION.get_instance::<N>()?;
+    let address = view_key.to_address();
+
+    let api_client = setup_client::<N>()?;
+
+    // checks if unconfirmed transactions have expired and updates their state to failed
+    check_unconfirmed_transactions::<N>()?;
+
+    // Get all unconfirmed and failed stored pointers
+    let unconfirmed_and_failed_ids = get_unconfirmed_and_failed_transaction_ids::<N>()?;
+
+    // Loop through them and fetch every block by referencing pointer.block_height
+    for (tx_id, pointer_id, block_height) in unconfirmed_and_failed_ids.iter() {
+        let height = *block_height;
+        let block = api_client.get_block(height)?;
+
+        let timestamp = get_timestamp_from_i64(block.timestamp())?;
+
+        for transaction in block.transactions().iter() {
+            let inner_tx = transaction.transaction();
+            let fee = match inner_tx.fee_amount() {
+                Ok(fee) => *fee as f64 / 1000000.0,
+                Err(_) => {
+                    handle_block_scan_failure::<N>(height)?;
+
+                    return Err(AvailError::new(
+                        AvailErrorType::SnarkVm,
+                        "Error calculating fee".to_string(),
+                        "Issue calculating fee".to_string(),
+                    ));
+                }
+            };
+
+            if let ConfirmedTransaction::<N>::AcceptedExecute(_, _, _) = transaction {
+                let executed_transitions = match get_executed_transitions::<N>(inner_tx, height) {
+                    Ok(transitions) => transitions,
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::SnarkVm,
+                            e.to_string(),
+                            "Error getting executed transitions".to_string(),
+                        ));
+                    }
+                };
+
+                match handle_transaction_confirmed(
+                    pointer_id.as_str(),
+                    *tx_id,
+                    executed_transitions,
+                    height,
+                    timestamp,
+                    Some(fee),
+                    address,
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error handling confirmed transaction".to_string(),
+                        ));
+                    }
+                };
+
+                continue;
+            } else if let ConfirmedTransaction::<N>::AcceptedDeploy(_, _, _) = transaction {
+                if let Some(fee_transition) = transaction.fee_transition() {
+                    let transition = fee_transition.transition();
+
+                    match input_spent_check(transition, true) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error checking spent input".to_string(),
+                            ));
+                        }
+                    };
+
+                    match transition_to_record_pointer(*tx_id, transition.clone(), height, view_key)
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error finding records from transition".to_string(),
+                            ));
+                        }
+                    };
+                }
+
+                match handle_deployment_confirmed(
+                    pointer_id.as_str(),
+                    *tx_id,
+                    height,
+                    Some(fee),
+                    address,
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error handling confirmed deployment".to_string(),
+                        ));
+                    }
+                };
+
+                continue;
+            } else if let ConfirmedTransaction::<N>::RejectedDeploy(_, fee_tx, _, _) = transaction {
+                let deployment_pointer = match get_deployment_pointer::<N>(pointer_id.as_str()) {
+                    Ok(pointer) => pointer,
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error getting deployment pointer".to_string(),
+                        ));
+                    }
+                };
+
+                if let Some(fee_transition) = fee_tx.fee_transition() {
+                    let transition = fee_transition.transition();
+
+                    match input_spent_check(transition, true) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error checking spent input".to_string(),
+                            ));
+                        }
+                    };
+
+                    match transition_to_record_pointer(*tx_id, transition.clone(), height, view_key)
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error finding records from transition".to_string(),
+                            ));
+                        }
+                    };
+                }
+
+                match handle_deployment_rejection(
+                    deployment_pointer,
+                    pointer_id.as_str(),
+                    *tx_id,
+                    height,
+                    Some(fee),
+                    address,
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error handling rejected deployment".to_string(),
+                        ));
+                    }
+                };
+
+                continue;
+            } else if let ConfirmedTransaction::<N>::RejectedExecute(_, fee_tx, rejected_tx, _) =
+                transaction
+            {
+                let transaction_pointer = match get_transaction_pointer::<N>(pointer_id.as_str()) {
+                    Ok(pointer) => pointer,
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error getting transaction pointer".to_string(),
+                        ));
+                    }
+                };
+
+                if let Some(fee_transition) = fee_tx.fee_transition() {
+                    let transition = fee_transition.transition();
+
+                    match input_spent_check(transition, true) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error checking spent input".to_string(),
+                            ));
+                        }
+                    };
+
+                    match transition_to_record_pointer(*tx_id, transition.clone(), height, view_key)
+                    {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error finding records from transition".to_string(),
+                            ));
+                        }
+                    };
+                }
+
+                if let Some(rejected_execution) = rejected_tx.execution() {
+                    match handle_transaction_rejection(
+                        transaction_pointer,
+                        pointer_id.as_str(),
+                        Some(rejected_execution.clone()),
+                        Some(*tx_id),
+                        height,
+                        Some(fee),
+                        address,
+                    ) {
+                        Ok(_) => {}
+                        Err(e) => {
+                            handle_block_scan_failure::<N>(height)?;
+
+                            return Err(AvailError::new(
+                                AvailErrorType::Internal,
+                                e.to_string(),
+                                "Error handling rejected transaction".to_string(),
+                            ));
+                        }
+                    };
+
+                    continue;
+                }
+
+                match handle_transaction_rejection(
+                    transaction_pointer,
+                    pointer_id.as_str(),
+                    None,
+                    Some(*tx_id),
+                    height,
+                    Some(fee),
+                    address,
+                ) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        handle_block_scan_failure::<N>(height)?;
+
+                        return Err(AvailError::new(
+                            AvailErrorType::Internal,
+                            e.to_string(),
+                            "Error handling rejected transaction".to_string(),
+                        ));
+                    }
+                };
+
+                continue;
+            }
+            continue;
+        }
+    }
+
+    Ok(())
+}
+
+/*
 /// Scans the blockchain for new records, distills record pointers, transition pointer and tags, and returns them
 pub fn get_records<N: Network>(
     last_sync: u32,
@@ -552,6 +850,7 @@ pub fn get_records<N: Network>(
 
     Ok(found_flag)
 }
+*/
 
 /// Fetches an aleo credits record to spend
 pub fn find_aleo_credits_record_to_spend<N: Network>(
