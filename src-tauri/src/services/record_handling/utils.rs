@@ -66,6 +66,8 @@ use avail_common::{
 
 use super::decrypt_transition::DecryptTransition;
 
+use super::records_new::convert_txn_to_confirmed_txn;
+
 /// Gets all tags from a given block height to the latest block height
 pub fn get_tags<N: Network>(min_block_height: u32) -> AvailResult<Vec<String>> {
     let api_client = setup_client::<N>()?;
@@ -1583,7 +1585,7 @@ pub fn handle_transaction_confirmed<N: Network>(
 
 /// Sync transaction whilst scanning blocks
 pub fn sync_transaction<N: Network>(
-    transaction: &ConfirmedTransaction<N>,
+    transaction: &Transaction<N>,
     block_height: u32,
     timestamp: DateTime<Local>,
     message: Option<String>,
@@ -1602,8 +1604,6 @@ pub fn sync_transaction<N: Network>(
 
     let mut execution_transitions: Vec<ExecutedTransition<N>> = vec![];
     let mut found_flag = false;
-
-    let state = check_transaction_state::<N>(transaction)?;
 
     for transition in transaction.transitions() {
         let ownership_check = match DecryptTransition::owns_transition(
@@ -1659,8 +1659,7 @@ pub fn sync_transaction<N: Network>(
 
     let execution_transaction = match !execution_transitions.is_empty() {
         true => {
-            let inner_tx = transaction.transaction();
-            let fee = match inner_tx.fee_amount() {
+            let fee = match transaction.fee_amount() {
                 Ok(fee) => *fee as f64 / 1000000.0,
                 Err(_) => {
                     return Err(AvailError::new(
@@ -1672,6 +1671,10 @@ pub fn sync_transaction<N: Network>(
             };
 
             println!("Fee found from external execution: {:?}", fee);
+
+            // Convert transaction to confirmed transaction type and check state
+            let confirmed_txn = convert_txn_to_confirmed_txn::<N>(transaction.clone())?;
+            let state = check_transaction_state::<N>(&confirmed_txn)?;
 
             let execution_tx = TransactionPointer::<N>::new(
                 None,

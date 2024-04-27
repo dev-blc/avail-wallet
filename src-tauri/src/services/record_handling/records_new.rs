@@ -3,7 +3,7 @@ use crate::services::local_storage::{
     session::view::VIEWSESSION,
     storage_api::transaction::get_unconfirmed_and_failed_transaction_ids,
 };
-use avail_common::errors::AvailResult;
+use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
 use chrono::{DateTime, Local};
 use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
@@ -12,6 +12,7 @@ use snarkvm::prelude::{
 };
 use snarkvm::synthesizer::program::FinalizeOperation;
 use tauri_plugin_http::reqwest::Client;
+use tokio::runtime::Runtime;
 
 /**
  * SyncTxnParams struct
@@ -24,7 +25,7 @@ use tauri_plugin_http::reqwest::Client;
  */
 #[derive(Debug, Clone)]
 struct SyncTxnParams<N: Network> {
-    transaction: ConfirmedTransaction<N>,
+    transaction: Transaction<N>,
     block_height: u32,
     timestamp: DateTime<Local>,
 }
@@ -69,77 +70,75 @@ impl LocalClient {
     }
 
     // Return arrays of records
-    async fn get_records(&self, start: u32, end: u32) -> Vec<Value> {
+    async fn get_records(&self, start: u32, end: u32) -> AvailResult<Vec<Value>> {
         let url = format!(
             "{}/api/{}/record/ownership/heightRange?start={}&end={}",
             self.base_url, self.api_key, start, end
         );
-        let response = self.client.get(url).send().await.unwrap();
+        let response = self.client.get(url).send().await?;
 
         // Get content from response
-        let content = response.text().await.unwrap();
+        let content = response.text().await?;
 
         // Parse the content as JSON
-        serde_json::from_str::<Value>(&content)
-            .unwrap()
-            .as_array()
-            .unwrap()
-            .clone()
+        Ok(serde_json::from_str::<Value>(&content)?
+            .as_array().unwrap()
+            .clone())
     }
 
     // Return a transaction
-    async fn get_transaction_id_from_transition(&self, transition_id: &str) -> String {
+    async fn get_transaction_id_from_transition(&self, transition_id: &str) -> AvailResult<String> {
         let url: String = format! {
             "{}/v1/{}/{}/find/transactionID/{transition_id}",
             self.base_url, self.api_key, self.network_id
         };
-        let response = self.client.get(url).send().await.unwrap();
+        let response = self.client.get(url).send().await?;
 
         // Get content from response
-        let content = response.text().await.unwrap();
+        let content = response.text().await?;
 
         // Parse the content as JSON
-        serde_json::from_str::<String>(&content).unwrap()
+        Ok(serde_json::from_str::<String>(&content)?)
     }
 
-    async fn get_transaction(&self, transaction_id: &str) -> Value {
+    async fn get_transaction<N: Network>(&self, transaction_id: &str) -> AvailResult<Transaction<N>> {
         let url = format!(
             "{}/v1/{}/{}/transaction/{transaction_id}",
             self.base_url, self.api_key, self.network_id
         );
-        let response = self.client.get(url).send().await.unwrap();
+        let response = self.client.get(url).send().await?;
 
         // Get content from response
-        let content = response.text().await.unwrap();
+        let content = response.text().await?;
 
         // Parse the content as JSON
-        serde_json::from_str::<Value>(&content).unwrap()
+        Ok(serde_json::from_str::<Transaction<N>>(&content)?)
     }
 
-    async fn get_block_from_transaction_id(&self, transaction_id: &str) -> Value {
+    async fn get_block_from_transaction_id(&self, transaction_id: &str) -> AvailResult<Value> {
         let mut url = format!(
             "{}/v1/{}/{}/find/blockHash/{transaction_id}",
             self.base_url, self.api_key, self.network_id
         );
-        let mut response = self.client.get(url).send().await.unwrap();
+        let mut response = self.client.get(url).send().await?;
 
         // Get content from response
-        let mut content = response.text().await.unwrap();
+        let mut content = response.text().await?;
 
         // Parse the content as JSON
-        let block_hash = serde_json::from_str::<String>(&content).unwrap();
+        let block_hash = serde_json::from_str::<String>(&content)?;
 
         url = format!(
             "{}/v1/{}/{}/block/{block_hash}",
             self.base_url, self.api_key, self.network_id
         );
-        response = self.client.get(url).send().await.unwrap();
+        response = self.client.get(url).send().await?;
 
         // Get content from response
-        content = response.text().await.unwrap();
+        content = response.text().await?;
 
         // Parse the content as JSON
-        serde_json::from_str::<Value>(&content).unwrap()
+        Ok(serde_json::from_str::<Value>(&content)?)
     }
 }
 
@@ -217,45 +216,42 @@ fn convert_to_confirmed_transaction<N: Network>(transaction: Value) -> Confirmed
 }
 
 /// Add to sync transaction parameters.
-fn add_to_sync_txn_params<N: Network>(
-    block: &Value,
-    block_height: u32,
-    timestamp: i64,
-    transition: &str,
-    sync_txn_params: &mut Vec<SyncTxnParams<N>>,
-) {
-    // Get transactions from block
+pub fn convert_txn_to_confirmed_txn<N: Network>(
+    transaction: Transaction<N>
+) -> AvailResult<ConfirmedTransaction<N>>{
+    let client = LocalClient::new(
+        env!("TESTNET_API_OBSCURA").to_string(),
+        "https://aleo-testnet3.obscura.network".to_string(),
+        "testnet3".to_string(),
+    );
+    let transaction_id = transaction.id().to_string();
+
+    let rt = Runtime::new()?;
+    let block = rt.block_on(client.get_block_from_transaction_id(&transaction_id))?;
+
     let transactions = block.get("transactions").unwrap().as_array().unwrap();
 
-    // Filter owned transaction only
+    let mut res: Option<ConfirmedTransaction<N>> = None;
     for txn in transactions {
-        // Get transitions from transaction
-        let local_transitions = txn
+        let txn_id = txn
             .get("transaction")
             .unwrap()
-            .get("execution")
-            .unwrap()
-            .get("transitions")
-            .unwrap()
-            .as_array()
+            .get("id")
             .unwrap();
 
-        for tsn in local_transitions {
-            let id = tsn.get("id").unwrap().as_str().unwrap();
-
-            // Check if it's owned transition
-            if (id == transition) {
-                println!("Found new owned transition:\n{} == {}\n", id, transition);
-                sync_txn_params.push(SyncTxnParams {
-                    transaction: convert_to_confirmed_transaction::<N>(txn.clone()),
-                    block_height,
-                    timestamp: DateTime::from_timestamp(timestamp, 0)
-                        .unwrap()
-                        .with_timezone(&Local),
-                });
-                println!("Added to sync transaction parameters:\n{}\n", txn);
-            }
+        if (txn_id.to_string() == transaction_id) {
+            res = Some(convert_to_confirmed_transaction::<N>(txn.clone()));
+            break;
         }
+    }
+    if res.is_some() {
+        Ok(res.unwrap())
+    } else {
+        Err(AvailError::new(
+            AvailErrorType::NotFound,
+            "Transaction not found".to_string(),
+            "Transaction not found".to_string()
+        ))
     }
 }
 
@@ -268,13 +264,14 @@ fn add_to_sync_txn_params<N: Network>(
 async fn convert_to_sync_txn_params<N: Network>(
     transitions: Vec<String>,
     client: &LocalClient,
-) -> Vec<SyncTxnParams<N>> {
+) -> AvailResult<Vec<SyncTxnParams<N>>> {
     let mut sync_txn_params: Vec<SyncTxnParams<N>> = Vec::new();
 
     for transition in transitions {
         // Get block
-        let transaction_id = client.get_transaction_id_from_transition(&transition).await;
-        let block = client.get_block_from_transaction_id(&transaction_id).await;
+        let transaction_id = client.get_transaction_id_from_transition(&transition).await?;
+        let transaction = client.get_transaction::<N>(&transaction_id).await?;
+        let block = client.get_block_from_transaction_id(&transaction_id).await?;
 
         // Get block height
         let block_height = block
@@ -297,15 +294,16 @@ async fn convert_to_sync_txn_params<N: Network>(
             .unwrap()
             .as_i64()
             .unwrap();
-        add_to_sync_txn_params(
-            &block,
+
+        sync_txn_params.push(SyncTxnParams {
+            transaction,
             block_height,
-            timestamp,
-            &transition,
-            &mut sync_txn_params,
-        );
+            timestamp: DateTime::from_timestamp(timestamp, 0)
+                .unwrap()
+                .with_timezone(&Local),
+        });
     }
-    sync_txn_params
+    Ok(sync_txn_params)
 }
 
 /**
@@ -323,7 +321,7 @@ pub async fn get_records_new<N: Network>(start: u32, end: u32) -> AvailResult<(V
         "https://aleo-testnet3.dev.obscura.network".to_string(),
         "testnet3".to_string(),
     );
-    let records = client.get_records(start, end).await;
+    let records = client.get_records(start, end).await?;
     Ok((records))
 }
 
@@ -347,17 +345,9 @@ pub async fn get_sync_txn_params<N: Network>(
     );
 
     // Get sync transaction parameters
-    let sync_txn_params = convert_to_sync_txn_params(transitions, &client).await;
+    let sync_txn_params = convert_to_sync_txn_params(transitions, &client).await.unwrap();
 
     Ok((sync_txn_params))
-}
-
-/// WIP
-pub fn check_unconfirmed_transactions() -> AvailResult<()> {
-    let unconfimred_and_failed_transactions =
-        get_unconfirmed_and_failed_transaction_ids::<Testnet3>()?;
-
-    Ok(())
 }
 
 #[cfg(test)]
@@ -392,10 +382,6 @@ mod record_handling_tests {
         let sync_txn_params = get_sync_txn_params::<N>(records.unwrap()).await;
 
         assert!(sync_txn_params.is_ok());
-
-        for i in sync_txn_params.unwrap() {
-            println!("SyncTxnParams: {:?}", i);
-        }
     }
 
     #[tokio::test]
