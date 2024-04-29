@@ -221,7 +221,13 @@ fn convert_to_confirmed_transaction<N: Network>(transaction: Value) -> Confirmed
     .unwrap()
 }
 
-/// Add to sync transaction parameters.
+/**
+ * Convert Transaction type to ConfirmedTransaction type
+ * Note: Redundant API call to be optimised in future with better way
+ *
+ * Finalize information which is necessary to convert
+ *  only contains in get_block API but not get_transaction API
+ */
 pub fn convert_txn_to_confirmed_txn<N: Network>(
     transaction: Transaction<N>
 ) -> AvailResult<ConfirmedTransaction<N>>{
@@ -237,6 +243,7 @@ pub fn convert_txn_to_confirmed_txn<N: Network>(
 
     let transactions = block.get("transactions").unwrap().as_array().unwrap();
 
+    // Search for matching transaction from block
     let mut res: Option<ConfirmedTransaction<N>> = None;
     for txn in transactions {
         let txn_id = txn
@@ -246,12 +253,13 @@ pub fn convert_txn_to_confirmed_txn<N: Network>(
             .unwrap()
             .to_string();
 
-        if let Ok(txn_id_obj) = N::TransactionID::from_str(&txn_id) {
-            if txn_id_obj == transaction_id {
-                res = Some(convert_to_confirmed_transaction::<N>(txn.clone()));
-                break;
-            }
-        };
+        // Remove extra double quotes from above
+        let txn_id_str = txn_id.trim_matches('"');
+
+        if txn_id_str == transaction_id_str {
+            res = Some(convert_to_confirmed_transaction::<N>(txn.clone()));
+            break;
+        }
     }
     if res.is_some() {
         Ok(res.unwrap())
@@ -400,7 +408,7 @@ mod record_handling_tests {
 
         let view_key = env!("VIEW_KEY");
         VIEWSESSION.set_view_session(view_key).unwrap();
-        let current_block: u32 = 2087986;
+        let current_block: u32 = 2249244;
         let start: u32 = current_block - 10;
         let records = get_records_new::<N>(start, current_block).unwrap();
 
@@ -425,7 +433,7 @@ mod record_handling_tests {
                 None,
             ));
         }
-        println!("{:?}", res);
+        println!("Result of sync_transaction: \n{:?}\n", res);
         assert!(res[0].is_ok());
     }
 }
