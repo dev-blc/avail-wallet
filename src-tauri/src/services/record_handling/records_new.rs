@@ -1,8 +1,5 @@
 use super::utils::sync_transaction;
-use crate::services::local_storage::{
-    session::view::VIEWSESSION,
-    storage_api::transaction::get_unconfirmed_and_failed_transaction_ids,
-};
+use crate::{services::local_storage::session::view::VIEWSESSION, api::aleo_client::setup_client};
 use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
 use chrono::{DateTime, Local};
 use serde_json::Value;
@@ -24,10 +21,10 @@ use tokio::runtime::Runtime;
  * timestamp: The timestamp of the block.
  */
 #[derive(Debug, Clone)]
-struct SyncTxnParams<N: Network> {
-    transaction: Transaction<N>,
-    block_height: u32,
-    timestamp: DateTime<Local>,
+pub(crate) struct SyncTxnParams<N: Network> {
+    pub(crate) transaction: Transaction<N>,
+    pub(crate) block_height: u32,
+    pub(crate) timestamp: DateTime<Local>,
 }
 /**
  * LocalClient struct
@@ -233,6 +230,7 @@ pub fn convert_txn_to_confirmed_txn<N: Network>(
         "https://aleo-testnet3.obscura.network".to_string(),
         "testnet3".to_string(),
     );
+
     let transaction_id = transaction.id();
     let transaction_id_str = transaction_id.clone().to_string();
     let block = client.get_block_from_transaction_id(&transaction_id_str)?;
@@ -427,6 +425,7 @@ mod record_handling_tests {
                 None,
             ));
         }
+        println!("{:?}", res);
         assert!(res[0].is_ok());
     }
 }

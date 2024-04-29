@@ -1100,17 +1100,17 @@ mod record_handling_test {
     }
     */
 
-    #[test]
-    fn test_get_records() {
-        let api_client = setup_client::<Testnet3>().unwrap();
-
-        let latest_height = api_client.latest_height().unwrap();
-        let last_sync = get_last_sync().unwrap();
-
-        let _res = get_records::<Testnet3>(last_sync, latest_height, None).unwrap();
-
-        println!("res: {:?}", _res);
-    }
+    // #[test]
+    // fn test_get_records() {
+    //     let api_client = setup_client::<Testnet3>().unwrap();
+    //
+    //     let latest_height = api_client.latest_height().unwrap();
+    //     let last_sync = get_last_sync().unwrap();
+    //
+    //     let _res = get_records::<Testnet3>(last_sync, latest_height, None).unwrap();
+    //
+    //     println!("res: {:?}", _res);
+    // }
 
     #[test]
     fn find_aleo_credits_record_to_spend_test() {
