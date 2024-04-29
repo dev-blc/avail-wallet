@@ -171,38 +171,6 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
 
     print!("From Last Sync: {:?} to height: {:?}", last_sync, height);
 
-    /*
-    let task = tokio_rayon::spawn( move || {
-        let found_flag = match SupportedNetworks::from_str(network.as_str())? {
-            SupportedNetworks::Testnet3 => {
-                get_records::<Testnet3>(last_sync, height, Some(window))?
-            }
-            _ => {
-                return Err(AvailError::new(
-                    AvailErrorType::Internal,
-                    "Invalid Network".to_string(),
-                    "Invalid Network".to_string(),
-                ));
-            }
-        };
-
-        Ok(found_flag)
-    });
-
-    let result = task.await;
-
-    let found_flag = match result {
-        Ok(res) => res,
-        Err(_) => {
-            return Err(AvailError::new(
-                AvailErrorType::Internal,
-                "Error scanning Aleo blockchain".to_string(),
-                "Error scanning Aleo blockchain".to_string(),
-            ));
-        }
-    };
-    */
-
     let found_flag = match SupportedNetworks::from_str(network.as_str())? {
         SupportedNetworks::Testnet3 => {
             type N = Testnet3;
@@ -356,34 +324,6 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
             ));
         }
     }
-
-    // let task = tokio_rayon::spawn(move || {
-    //     let found_flag = match SupportedNetworks::from_str(network.as_str())? {
-    //         SupportedNetworks::Testnet3 => get_records::<Testnet3>(last_sync, 1764731u32, None)?,
-    //         _ => {
-    //             return Err(AvailError::new(
-    //                 AvailErrorType::Internal,
-    //                 "Invalid Network".to_string(),
-    //                 "Invalid Network".to_string(),
-    //             ));
-    //         }
-    //     };
-    //
-    //     Ok(found_flag)
-    // });
-    //
-    // let result = task.await;
-    //
-    // let found_flag = match result {
-    //     Ok(res) => res,
-    //     Err(_) => {
-    //         return Err(AvailError::new(
-    //             AvailErrorType::Internal,
-    //             "Error scanning Aleo blockchain".to_string(),
-    //             "Error scanning Aleo blockchain".to_string(),
-    //         ));
-    //     }
-    // };
 }
 
 #[cfg(test)]

@@ -2,10 +2,11 @@ use super::utils::sync_transaction;
 use crate::{services::local_storage::session::view::VIEWSESSION, api::aleo_client::setup_client};
 use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
 use chrono::{DateTime, Local};
+use libc::time;
 use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
 use snarkvm::prelude::{
-    Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField, Transaction,
+    Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField, Transaction, Block
 };
 use snarkvm::synthesizer::program::FinalizeOperation;
 use tauri_plugin_http::reqwest::Client;
@@ -22,7 +23,7 @@ use tokio::runtime::Runtime;
  */
 #[derive(Debug, Clone)]
 pub(crate) struct SyncTxnParams<N: Network> {
-    pub(crate) transaction: Transaction<N>,
+    pub(crate) transaction: ConfirmedTransaction<N>,
     pub(crate) block_height: u32,
     pub(crate) timestamp: DateTime<Local>,
 }
@@ -118,7 +119,7 @@ impl LocalClient {
         Ok(serde_json::from_str::<Transaction<N>>(&content)?)
     }
 
-    fn get_block_from_transaction_id(&self, transaction_id: &str) -> AvailResult<Value> {
+    fn get_block_from_transaction_id<N: Network>(&self, transaction_id: &str) -> AvailResult<Block<N>> {
         let mut url = format!(
             "{}/v1/{}/{}/find/blockHash/{transaction_id}",
             self.base_url, self.api_key, self.network_id
@@ -144,7 +145,7 @@ impl LocalClient {
         content = rt.block_on(response.text())?;
 
         // Parse the content as JSON
-        Ok(serde_json::from_str::<Value>(&content)?)
+        Ok(serde_json::from_str::<Block<N>>(&content)?)
     }
 }
 
@@ -202,25 +203,6 @@ fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> 
     transitions
 }
 
-/// Convert transaction to confirmed transaction.
-fn convert_to_confirmed_transaction<N: Network>(transaction: Value) -> ConfirmedTransaction<N> {
-    let mut finalize_operations: Vec<FinalizeOperation<N>> = Vec::new();
-
-    // Get finalizes from transaction
-    let finalizes = transaction.get("finalize").unwrap().as_array().unwrap();
-    for finalize in finalizes {
-        finalize_operations.push(FinalizeOperation::from_str(&finalize.to_string()).unwrap());
-    }
-
-    // Return as confirmed transaction
-    ConfirmedTransaction::accepted_execute(
-        transaction.get("index").unwrap().as_u64().unwrap() as u32,
-        Transaction::from_str(&transaction.get("transaction").unwrap().to_string()).unwrap(),
-        finalize_operations,
-    )
-    .unwrap()
-}
-
 /**
  * Convert Transaction type to ConfirmedTransaction type
  * Note: Redundant API call to be optimised in future with better way
@@ -238,26 +220,17 @@ pub fn convert_txn_to_confirmed_txn<N: Network>(
     );
 
     let transaction_id = transaction.id();
-    let transaction_id_str = transaction_id.clone().to_string();
-    let block = client.get_block_from_transaction_id(&transaction_id_str)?;
+    let block = client.get_block_from_transaction_id::<N>(&transaction_id.to_string())?;
 
-    let transactions = block.get("transactions").unwrap().as_array().unwrap();
+    let transactions = block.transactions();
 
     // Search for matching transaction from block
     let mut res: Option<ConfirmedTransaction<N>> = None;
-    for txn in transactions {
-        let txn_id = txn
-            .get("transaction")
-            .unwrap()
-            .get("id")
-            .unwrap()
-            .to_string();
-
-        // Remove extra double quotes from above
-        let txn_id_str = txn_id.trim_matches('"');
-
-        if txn_id_str == transaction_id_str {
-            res = Some(convert_to_confirmed_transaction::<N>(txn.clone()));
+    for confirmed_txn in transactions.iter() {
+        if confirmed_txn.id() == transaction_id {
+            // res = Some(convert_to_confirmed_transaction::<N>(txn.clone(), transaction)?);
+            println!("Confirmed Transaction\n{:?}\n", confirmed_txn);
+            res = Some(confirmed_txn.clone());
             break;
         }
     }
@@ -288,33 +261,26 @@ fn convert_to_sync_txn_params<N: Network>(
     for transition in transitions {
         // Get block
         let transaction_id = client.get_transaction_id_from_transition(&transition)?;
-        let transaction = client.get_transaction::<N>(&transaction_id)?;
-        let block = client.get_block_from_transaction_id(&transaction_id)?;
+        let block: Block<N> = client.get_block_from_transaction_id(&transaction_id)?;
 
-        // Get block height
-        let block_height = block
-            .get("header")
-            .unwrap()
-            .get("metadata")
-            .unwrap()
-            .get("height")
-            .unwrap()
-            .as_u64()
-            .unwrap() as u32;
+        // Populate sync transaction parameters
+        let block_height = block.height();
+        let timestamp = block.timestamp();
+        let mut confirmed_transaction: Option<ConfirmedTransaction<N>> = None;
 
-        // Get timestamp
-        let timestamp = block
-            .get("header")
-            .unwrap()
-            .get("metadata")
-            .unwrap()
-            .get("timestamp")
-            .unwrap()
-            .as_i64()
-            .unwrap();
+        // Search for matching transaction from block
+        let transactions = block.transactions();
+        for confirmed_txn in transactions.iter() {
+            if confirmed_txn.id().to_string() == transaction_id {
+                println!("Found confirmed transaction:\n{:?}\n", confirmed_txn);
+                confirmed_transaction = Some(confirmed_txn.clone());
+                break;
+            }
+        }
 
+        // Add sync transaction parameters
         sync_txn_params.push(SyncTxnParams {
-            transaction,
+            transaction: confirmed_transaction.unwrap(),
             block_height,
             timestamp: DateTime::from_timestamp(timestamp, 0)
                 .unwrap()
@@ -433,7 +399,7 @@ mod record_handling_tests {
                 None,
             ));
         }
-        println!("Result of sync_transaction: \n{:?}\n", res);
+        println!("Result of sync_transaction:\n{:?}\n", res);
         assert!(res[0].is_ok());
     }
 }

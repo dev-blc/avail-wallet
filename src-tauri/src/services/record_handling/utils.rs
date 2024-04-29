@@ -1585,7 +1585,7 @@ pub fn handle_transaction_confirmed<N: Network>(
 
 /// Sync transaction whilst scanning blocks
 pub fn sync_transaction<N: Network>(
-    transaction: &Transaction<N>,
+    transaction: &ConfirmedTransaction<N>,
     block_height: u32,
     timestamp: DateTime<Local>,
     message: Option<String>,
@@ -1672,9 +1672,7 @@ pub fn sync_transaction<N: Network>(
 
             println!("Fee found from external execution: {:?}", fee);
 
-            // Convert transaction to confirmed transaction type and check state
-            let confirmed_txn = convert_txn_to_confirmed_txn::<N>(transaction.clone())?;
-            let state = check_transaction_state::<N>(&confirmed_txn)?;
+            let state = check_transaction_state::<N>(&transaction)?;
 
             let execution_tx = TransactionPointer::<N>::new(
                 None,
