@@ -91,7 +91,7 @@ pub fn store_encrypted_data(data: EncryptedData) -> AvailResult<()> {
     // get from server and sture
     storage.save_mixed(
         vec![&id,&data.owner, &ciphertext, &nonce, &flavour,&record_type,&data.program_ids,&data.function_ids,&data.created_at,&data.updated_at,&data.synced_on,&data.network,&data.record_name,&data.spent,&event_type,&data.record_nonce,&transaction_state,&data.transaction_id,&data.transition_id],
-        "INSERT INTO encrypted_data (id,owner,ciphertext,nonce,flavour,record_type,program_ids,function_ids,created_at,updated_at,synced_on,network,record_name,spent,event_type,record_nonce,state) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)"
+        "INSERT INTO encrypted_data (id,owner,ciphertext,nonce,flavour,record_type,program_ids,function_ids,created_at,updated_at,synced_on,network,record_name,spent,event_type,record_nonce,state,transaction_id,transition_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)"
             .to_string(),
     )?;
 
@@ -624,7 +624,7 @@ pub async fn get_and_store_all_data() -> AvailResult<Data> {
 
     let data = recover_data(&address.to_string()).await?;
     let data_r = data.clone();
-    println!("DATA IS HERE AT FIRST --> \n RP ----> {:?} \n TXN ----> {:?} \n TRN ----> {:?} \n DEPL ----> {:?}", data.record_pointers.len(), data.transactions.len(), data.transitions.len(), data.deployments.len());
+    // println!("DATA IS HERE AT FIRST --> \n RP ----> {:?} \n TXN ----> {:?} \n TRN ----> {:?} \n DEPL ----> {:?}", data.record_pointers.len(), data.transactions.len(), data.transitions.len(), data.deployments.len());
 
     for encrypted_record_pointer in data.record_pointers {
         let e_r = match SupportedNetworks::from_str(&network)? {
@@ -722,6 +722,40 @@ pub fn process_private_tokens(data: Data) -> AvailResult<()> {
     }
     Ok(())
 }
+
+/// Handles migrations from old version of encrypted_data table to the new version
+pub fn migrate_encrypte_data() -> AvailResult<()> {
+    // this function should check if the encrypted data table already exists and has the last two columns added i.e transaction_id and transition_id
+    // if not, it should add the columns and update the data in the table
+    let storage = PersistentStorage::new()?;
+    let query = "PRAGMA table_info(encrypted_data)";
+    let mut query_statement = storage.conn.prepare(query)?;
+
+    let query_iter = query_statement.query_map([], |row| {
+        let name: String = row.get(1)?;
+
+        Ok(name)
+    })?;
+
+    let mut columns: Vec<String> = Vec::new();
+
+    for column in query_iter {
+        columns.push(column?);
+    }
+
+    if !columns.contains(&"transaction_id".to_string()) {
+        let query = "ALTER TABLE encrypted_data ADD COLUMN transaction_id TEXT";
+        storage.execute_query(query)?;
+    }
+
+    if !columns.contains(&"transition_id".to_string()) {
+        let query = "ALTER TABLE encrypted_data ADD COLUMN transition_id TEXT";
+        storage.execute_query(query)?;
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod encrypted_data_tests {
     use super::*;
