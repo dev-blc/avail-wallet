@@ -1,5 +1,8 @@
 use super::utils::sync_transaction;
+
+use crate::services::local_storage::storage_api::transition::is_transition_stored;
 use crate::{api::aleo_client::setup_client, services::local_storage::session::view::VIEWSESSION};
+
 use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
 use chrono::{DateTime, Local};
 use libc::time;
@@ -74,7 +77,7 @@ impl LocalClient {
             "{}/api/{}/record/ownership/heightRange?start={}&end={}",
             self.base_url, self.api_key, start, end
         );
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let request = self.client.get(url);
         let response = rt.block_on(request.send())?;
 
@@ -94,7 +97,7 @@ impl LocalClient {
             "{}/v1/{}/{}/find/transactionID/{transition_id}",
             self.base_url, self.api_key, self.network_id
         };
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let request = self.client.get(url);
         let response = rt.block_on(request.send())?;
 
@@ -110,7 +113,7 @@ impl LocalClient {
             "{}/v1/{}/{}/transaction/{transaction_id}",
             self.base_url, self.api_key, self.network_id
         );
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let request = self.client.get(url);
         let response = rt.block_on(request.send())?;
 
@@ -129,7 +132,7 @@ impl LocalClient {
             "{}/v1/{}/{}/find/blockHash/{transaction_id}",
             self.base_url, self.api_key, self.network_id
         );
-        let rt = Runtime::new().unwrap();
+        let rt = Runtime::new()?;
         let mut request = self.client.get(url);
         let mut response = rt.block_on(request.send())?;
 
@@ -182,7 +185,7 @@ fn is_owner_direct<N: Network>(
  * @param records The records to convert.
  * @return The transitions.
  */
-fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> {
+fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> AvailResult<Vec<String>> {
     let mut transitions = Vec::new();
     for record in records {
         // Get values from record and cast to primitive types
@@ -193,8 +196,8 @@ fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> 
         let (_, owner_x) =
             Field::<N>::parse(record.get("owner_x").unwrap().as_str().unwrap()).unwrap();
         let nonce = Group::<N>::from_xy_coordinates(nonce_x, nonce_y);
-        let view_key = VIEWSESSION.get_instance::<N>().unwrap();
-        let address = view_key.to_address().to_field().unwrap();
+        let view_key = VIEWSESSION.get_instance::<N>()?;
+        let address = view_key.to_address().to_field()?;
 
         // Check if the record is owned
         if (is_owner_direct(address, *view_key, nonce, owner_x)) {
@@ -205,10 +208,23 @@ fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> 
 
             // Check if transition ID is already stored in encrypted_data table
 
-            transitions.push(transition_id.to_string());
+            let is_stored = match is_transition_stored(transition_id) {
+                Ok(res) => res,
+                Err(e) => return Err(e),
+            };
+
+            match is_stored {
+                true => {
+                    println!("Transition already stored\n");
+                }
+                false => {
+                    transitions.push(transition_id.to_string());
+                }
+            }
         };
     }
-    transitions
+
+    Ok(transitions)
 }
 
 /**
@@ -264,7 +280,7 @@ fn convert_to_sync_txn_params<N: Network>(
     client: &LocalClient,
 ) -> AvailResult<Vec<SyncTxnParams<N>>> {
     let mut sync_txn_params: Vec<SyncTxnParams<N>> = Vec::new();
-    let rt = Runtime::new().unwrap();
+    let rt = Runtime::new()?;
 
     for transition in transitions {
         // Get block
@@ -307,7 +323,7 @@ fn convert_to_sync_txn_params<N: Network>(
 pub fn get_records_new<N: Network>(start: u32, end: u32) -> AvailResult<(Vec<Value>)> {
     // Prepare API client and get records
     // ATTENTION: Different API and base_url to get records
-    let api_key: String = "bcde0fb4-a4fa-4e84-affd-ab70b5e477db".to_string();
+    let api_key: String = env!("OBSCURA_SDK").to_string();
     let client = LocalClient::new(
         api_key,
         "https://aleo-testnet3.dev.obscura.network".to_string(),
@@ -322,11 +338,9 @@ pub fn get_records_new<N: Network>(start: u32, end: u32) -> AvailResult<(Vec<Val
  * @param records The records to get the sync transaction parameters from.
  * @return The sync transaction parameters.
  */
-pub fn get_sync_txn_params<N: Network>(
-    records: Vec<Value>,
-) -> AvailResult<(Vec<(SyncTxnParams<N>)>)> {
+pub fn get_sync_txn_params<N: Network>(records: Vec<Value>) -> AvailResult<Vec<SyncTxnParams<N>>> {
     // Get transitions from owned records
-    let transitions = owned_records_to_transitions::<N>(records);
+    let transitions = owned_records_to_transitions::<N>(records)?;
 
     // Prepare API client
     let api_key = env!("TESTNET_API_OBSCURA").to_string();
@@ -339,7 +353,7 @@ pub fn get_sync_txn_params<N: Network>(
     // Get sync transaction parameters
     let sync_txn_params = convert_to_sync_txn_params(transitions, &client)?;
 
-    Ok((sync_txn_params))
+    Ok(sync_txn_params)
 }
 
 #[cfg(test)]
