@@ -25,13 +25,13 @@ use crate::{
 
 use std::str::FromStr;
 
+use crate::models::pointers::record::AvailRecord;
+use crate::services::local_storage::session::view::VIEWSESSION;
+use crate::services::record_handling::records_new::{get_records_new, get_sync_txn_params};
 use avail_common::{
     errors::{AvailError, AvailErrorType, AvailResult},
     models::{encrypted_data::EncryptedData, network::SupportedNetworks},
 };
-use crate::models::pointers::record::AvailRecord;
-use crate::services::local_storage::session::view::VIEWSESSION;
-use crate::services::record_handling::records_new::{get_records_new, get_sync_txn_params};
 
 use crate::services::local_storage::persistent_storage::{
     get_address, get_backup_flag, get_last_backup_sync, get_last_sync, get_network,
@@ -201,7 +201,7 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
                 ));
             }
             res[0].is_ok()
-        },
+        }
         _ => {
             return Err(AvailError::new(
                 AvailErrorType::Internal,
@@ -315,7 +315,7 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
                 ));
             }
             Ok(res[0].is_ok())
-        },
+        }
         _ => {
             return Err(AvailError::new(
                 AvailErrorType::Internal,

@@ -1,12 +1,13 @@
 use super::utils::sync_transaction;
-use crate::{services::local_storage::session::view::VIEWSESSION, api::aleo_client::setup_client};
+use crate::{api::aleo_client::setup_client, services::local_storage::session::view::VIEWSESSION};
 use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
 use chrono::{DateTime, Local};
 use libc::time;
 use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
 use snarkvm::prelude::{
-    Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField, Transaction, Block
+    Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField,
+    Transaction,
 };
 use snarkvm::synthesizer::program::FinalizeOperation;
 use tauri_plugin_http::reqwest::Client;
@@ -82,7 +83,8 @@ impl LocalClient {
 
         // Parse the content as JSON
         Ok(serde_json::from_str::<Value>(&content)?
-            .as_array().unwrap()
+            .as_array()
+            .unwrap()
             .clone())
     }
 
@@ -119,7 +121,10 @@ impl LocalClient {
         Ok(serde_json::from_str::<Transaction<N>>(&content)?)
     }
 
-    fn get_block_from_transaction_id<N: Network>(&self, transaction_id: &str) -> AvailResult<Block<N>> {
+    fn get_block_from_transaction_id<N: Network>(
+        &self,
+        transaction_id: &str,
+    ) -> AvailResult<Block<N>> {
         let mut url = format!(
             "{}/v1/{}/{}/find/blockHash/{transaction_id}",
             self.base_url, self.api_key, self.network_id
@@ -167,7 +172,7 @@ fn is_owner_direct<N: Network>(
     // Compute the 0th randomizer.
     let randomizer = N::hash_many_psd8(&[N::encryption_domain(), record_view_key], 1);
     // Decrypt the owner.
-    let owner_x = record_owner_x_coordinate - &randomizer[0];
+    let owner_x = record_owner_x_coordinate - randomizer[0];
     // Check if the address is the owner.
     owner_x == address_x_coordinate
 }
@@ -197,6 +202,9 @@ fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> 
 
             // Get transition ID
             let transition_id = record.get("transition_id").unwrap().as_str().unwrap();
+
+            // Check if transition ID is already stored in encrypted_data table
+
             transitions.push(transition_id.to_string());
         };
     }
@@ -211,8 +219,8 @@ fn owned_records_to_transitions<N: Network>(records: Vec<Value>) -> Vec<String> 
  *  only contains in get_block API but not get_transaction API
  */
 pub fn convert_txn_to_confirmed_txn<N: Network>(
-    transaction: Transaction<N>
-) -> AvailResult<ConfirmedTransaction<N>>{
+    transaction: Transaction<N>,
+) -> AvailResult<ConfirmedTransaction<N>> {
     let client = LocalClient::new(
         env!("TESTNET_API_OBSCURA").to_string(),
         "https://aleo-testnet3.obscura.network".to_string(),
@@ -240,7 +248,7 @@ pub fn convert_txn_to_confirmed_txn<N: Network>(
         Err(AvailError::new(
             AvailErrorType::NotFound,
             "Transaction not found".to_string(),
-            "Transaction not found".to_string()
+            "Transaction not found".to_string(),
         ))
     }
 }
@@ -377,6 +385,8 @@ mod record_handling_tests {
         let current_block: u32 = 2249244;
         let start: u32 = current_block - 10;
         let records = get_records_new::<N>(start, current_block).unwrap();
+
+        // TODO : Check if the record is already stored
 
         let sync_txn_params = get_sync_txn_params::<N>(records).unwrap();
 
