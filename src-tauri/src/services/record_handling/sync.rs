@@ -18,16 +18,17 @@ use crate::{
             get_encrypted_data_to_backup, get_encrypted_data_to_update,
             update_encrypted_data_synced_on_by_id,
         },
-        persistent_storage::get_address_string,
+        persistent_storage::{get_address_string, update_last_sync},
         storage_api::records::{encrypt_and_store_records, update_records_spent_backup},
     },
 };
 
 use std::str::FromStr;
 
-use crate::models::pointers::record::AvailRecord;
 use crate::services::local_storage::session::view::VIEWSESSION;
-use crate::services::record_handling::records_new::{get_records_new, get_sync_txn_params};
+use crate::services::record_handling::scan_utils::{
+    get_records_new, get_sync_txn_params, handle_unconfirmed_transactions,
+};
 use avail_common::{
     errors::{AvailError, AvailErrorType, AvailResult},
     models::{encrypted_data::EncryptedData, network::SupportedNetworks},
@@ -50,7 +51,7 @@ fn process_transaction<N: Network>(
 
     if let Some(transaction) = transaction {
         println!("Transaction verified");
-        let (_, record_pointers, encrypted_transitions, _) = sync_transaction(
+        let (record_pointers, encrypted_transitions, _) = sync_transaction(
             &transaction,
             transaction_message.confirmed_height(),
             timestamp,
@@ -167,7 +168,9 @@ pub async fn txs_sync_raw<N: Network>() -> AvailResult<TxScanResponse> {
 #[tauri::command(rename_all = "snake_case")]
 pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
     let network = get_network()?;
-    let last_sync = get_last_sync()?;
+    //let last_sync = get_last_sync()?;
+
+    let last_sync = 2220888u32;
 
     print!("From Last Sync: {:?} to height: {:?}", last_sync, height);
 
@@ -175,32 +178,42 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
         SupportedNetworks::Testnet3 => {
             type N = Testnet3;
 
+            handle_unconfirmed_transactions::<N>().await?;
+
             let view_key = env!("VIEW_KEY");
-            VIEWSESSION.set_view_session(view_key).unwrap();
-            let records = get_records_new::<N>(last_sync, height).unwrap();
+            VIEWSESSION.set_view_session(view_key)?;
 
-            let sync_txn_params = get_sync_txn_params::<N>(records).unwrap();
+            let timerx = std::time::Instant::now();
+            let records = get_records_new::<N>(last_sync, height).await?;
+            println!("Time elapsed in getting records is: {:?}", timerx.elapsed());
 
-            let mut res: Vec<
-                AvailResult<(
-                    Option<EncryptedData>,
-                    Vec<AvailRecord<N>>,
-                    Vec<EncryptedData>,
-                    bool,
-                )>,
-            > = Vec::new();
+            let sync_txn_params = get_sync_txn_params::<N>(records, Some(window)).await?;
+
+            let mut res: bool = false;
+
+            let timer_sync = std::time::Instant::now();
 
             // Sync transactions
             for params in sync_txn_params {
-                res.push(sync_transaction::<Testnet3>(
+                let (_, _, found) = sync_transaction::<Testnet3>(
                     &params.transaction,
                     params.block_height,
                     params.timestamp,
                     None,
                     None,
-                ));
+                )?;
+
+                if !res {
+                    res = found;
+                }
             }
-            res[0].is_ok()
+
+            println!(
+                "Time elapsed in syncing transactions is: {:?}",
+                timer_sync.elapsed()
+            );
+
+            res
         }
         _ => {
             return Err(AvailError::new(
@@ -211,6 +224,7 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
         }
     };
 
+    update_last_sync(height)?;
     print!("Scan Complete");
 
     Ok(found_flag)
@@ -291,38 +305,37 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
 
             let view_key = env!("VIEW_KEY");
             VIEWSESSION.set_view_session(view_key).unwrap();
-            let records = get_records_new::<N>(last_sync, height).unwrap();
 
-            let sync_txn_params = get_sync_txn_params::<N>(records).unwrap();
+            handle_unconfirmed_transactions::<N>().await.unwrap();
 
-            let mut res: Vec<
-                AvailResult<(
-                    Option<EncryptedData>,
-                    Vec<AvailRecord<N>>,
-                    Vec<EncryptedData>,
-                    bool,
-                )>,
-            > = Vec::new();
+            let records = get_records_new::<N>(last_sync, height).await.unwrap();
+
+            let sync_txn_params = get_sync_txn_params::<N>(records, None).await.unwrap();
+
+            let mut res: bool = false;
 
             // Sync transactions
             for params in sync_txn_params {
-                res.push(sync_transaction::<Testnet3>(
+                let (_, _, found) = sync_transaction::<Testnet3>(
                     &params.transaction,
                     params.block_height,
                     params.timestamp,
                     None,
                     None,
-                ));
+                )?;
+
+                if !res {
+                    res = found;
+                }
             }
-            Ok(res[0].is_ok())
+
+            Ok(res)
         }
-        _ => {
-            return Err(AvailError::new(
-                AvailErrorType::Internal,
-                "Invalid Network".to_string(),
-                "Invalid Network".to_string(),
-            ));
-        }
+        _ => Err(AvailError::new(
+            AvailErrorType::Internal,
+            "Invalid Network".to_string(),
+            "Invalid Network".to_string(),
+        )),
     }
 }
 
@@ -496,7 +509,7 @@ mod test {
     async fn test_scan() {
         //test_setup_prerequisites();
         VIEWSESSION
-            .set_view_session("AViewKey1tLudtDDJQBBcHBnBLaHTJVCdyBeNgwks9oYivxBSeegZ")
+            .set_view_session("AViewKey1h4qXQ8kP2JT7Vo7pBuhtMrHz7R81RJUHLc2LTQfrCt3R")
             .unwrap();
 
         let api_client = setup_client::<Testnet3>().unwrap();

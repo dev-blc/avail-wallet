@@ -16,7 +16,7 @@ use services::local_storage::persistent_storage::{
 
 use api::user::{update_backup_flag, update_username};
 use services::local_storage::{
-    encrypted_data::get_and_store_all_data,
+    encrypted_data::{get_and_store_all_data, migrate_encrypted_data},
     tokens::get_stored_tokens,
     utils::{
         delete_local_for_recovery, delete_util, get_private_key_tauri, get_seed_phrase,
@@ -93,6 +93,7 @@ pub fn run() {
             txs_sync,
             blocks_sync,
             sync_backup,
+            migrate_encrypted_data,
             /* Avail Services */
             get_avail_event,
             get_avail_events,

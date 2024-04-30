@@ -724,7 +724,8 @@ pub fn process_private_tokens(data: Data) -> AvailResult<()> {
 }
 
 /// Handles migrations from old version of encrypted_data table to the new version
-pub fn migrate_encrypte_data() -> AvailResult<()> {
+#[tauri::command(rename_all = "snake_case")]
+pub fn migrate_encrypted_data() -> AvailResult<()> {
     // this function should check if the encrypted data table already exists and has the last two columns added i.e transaction_id and transition_id
     // if not, it should add the columns and update the data in the table
     let storage = PersistentStorage::new()?;
@@ -924,5 +925,10 @@ mod encrypted_data_tests {
         println!("{:?}", res);
 
         delete_all_server_storage().await.unwrap();
+    }
+
+    #[test]
+    fn update_migrations() {
+        migrate_encrypted_data().unwrap();
     }
 }

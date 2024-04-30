@@ -66,7 +66,7 @@ use avail_common::{
 
 use super::decrypt_transition::DecryptTransition;
 
-use super::records_new::convert_txn_to_confirmed_txn;
+use super::scan_utils::convert_txn_to_confirmed_txn;
 
 /// Gets all tags from a given block height to the latest block height
 pub fn get_tags<N: Network>(min_block_height: u32) -> AvailResult<Vec<String>> {
@@ -1590,12 +1590,7 @@ pub fn sync_transaction<N: Network>(
     timestamp: DateTime<Local>,
     message: Option<String>,
     from: Option<String>,
-) -> AvailResult<(
-    Option<EncryptedData>,
-    Vec<AvailRecord<N>>,
-    Vec<EncryptedData>,
-    bool,
-)> {
+) -> AvailResult<(Vec<AvailRecord<N>>, Vec<EncryptedData>, bool)> {
     let view_key = VIEWSESSION.get_instance::<N>()?;
     let address = view_key.to_address();
 
@@ -1702,12 +1697,7 @@ pub fn sync_transaction<N: Network>(
         false => None,
     };
 
-    Ok((
-        execution_transaction,
-        record_pointers,
-        encrypted_transition_pointers,
-        found_flag,
-    ))
+    Ok((record_pointers, encrypted_transition_pointers, found_flag))
 }
 
 pub fn check_transaction_state<N: Network>(
