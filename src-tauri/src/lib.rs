@@ -32,7 +32,7 @@ use services::local_storage::{
 // use crate::services::record_handling::utils::get_all_nft_data;
 use services::record_handling::{
     sync::{blocks_sync, sync_backup, txs_sync},
-    transfer::{pre_install_inclusion_prover, transfer},
+    transfer::{delete_inclusion_prover, pre_install_inclusion_prover, transfer},
 };
 use tauri::Manager;
 use tauri_plugin_deep_link::DeepLinkExt;
@@ -121,7 +121,8 @@ pub fn run() {
             get_succinct_avail_events,
             verify,
             /* Aleo Helpers */
-            pre_install_inclusion_prover
+            pre_install_inclusion_prover,
+            delete_inclusion_prover
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

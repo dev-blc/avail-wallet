@@ -56,7 +56,7 @@ import {
 	set_first_visit, get_first_visit, set_visit_session_flag, get_visit_session_flag,
 } from '../services/storage/localStorage';
 import {os} from '../services/util/open';
-import {pre_install_inclusion_prover} from '../services/transfer/inclusion';
+import {preInstallInclusionProver,deleteInclusionProver} from '../services/transfer/inclusion';
 import {sync_backup} from '../services/scans/backup';
 import {scan_blocks} from '../services/scans/blocks';
 import {scan_messages} from '../services/scans/encrypted_messages';
@@ -309,6 +309,18 @@ function Home() {
 				}).catch(error => {
 					console.log(error);
 				});
+
+				deleteInclusionProver().then(async() => {
+					console.log('Deleted inclusion.prover');
+
+					await preInstallInclusionProver();
+
+					setMessage('Pre installing Aleo SRS...');
+					setSuccessAlert(true);
+				}).catch(e => {
+					console.log('Issue deleting inclusion.prover' + e);
+				});
+
 				set_visit_session_flag();
 			}
 
@@ -320,7 +332,7 @@ function Home() {
 				setBackupDialog(true);
 
 				// Info notify user that inclusion.prover is being installed
-				pre_install_inclusion_prover().then(() => {
+				preInstallInclusionProver().then(() => {
 					setMessage('Pre installing Aleo SRS...');
 					setSuccessAlert(true);
 				}).catch(() => {
