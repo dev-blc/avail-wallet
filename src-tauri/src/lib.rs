@@ -52,7 +52,6 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             #[cfg(desktop)]
             let handle = app.handle().clone();
