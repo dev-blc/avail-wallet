@@ -22,11 +22,11 @@ import Layout from './reusable/layout';
 import {type WhitelistResponse, type Collection, testCollection} from '../types/quests/quest_types';
 import {type AvailError} from '../types/errors';
 
-import { useNavigate } from 'react-router-dom';
+import {useNavigate} from 'react-router-dom';
 
 import greenGlow from '../assets/images/backgrounds/gglow_quests.png';
 
-import { SuccessAlert, ErrorAlert } from '../components/snackbars/alerts';
+import {SuccessAlert, ErrorAlert} from '../components/snackbars/alerts';
 
 function Nfts() {
 	const [nfts, setNfts] = React.useState<INft[]>([]);
@@ -120,7 +120,7 @@ function Nfts() {
 						<mui.Grid container spacing={2} sx={{width: '90%', alignSelf: 'center', mt: '5%'}}>
 							{airdropNfts.map((collection, index) => (
 								<mui.Grid item key={index}>
-									<AirdropNft collection={collection} setCollection={setSelectedAirdropNft} setOpen={setOpen}/>
+									<AirdropNft collection={collection} setCollection={setSelectedAirdropNft}/>
 								</mui.Grid>
 							))}
 						</mui.Grid>

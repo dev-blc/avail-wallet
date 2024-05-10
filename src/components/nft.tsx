@@ -11,7 +11,6 @@ type NftProperties = {
 type AirdropNftProperties = {
 	collection: Collection;
 	setCollection: (collection: Collection) => void;
-	setOpen: (open: boolean) => void;
 };
 
 export const Nft: React.FC<NftProperties> = ({name, image}) => (
@@ -23,7 +22,7 @@ export const Nft: React.FC<NftProperties> = ({name, image}) => (
 	</mui.Box>
 );
 
-export const AirdropNft: React.FC<AirdropNftProperties> = ({collection, setCollection, setOpen}) => (
+export const AirdropNft: React.FC<AirdropNftProperties> = ({collection, setCollection}) => (
 
 	<mui.Card sx={{bgcolor: '#2A2A2A',
 		transition: 'transform 0.3s ease-in-out, boxShadow 0.3s ease-in-out, bgcolor 1s ease-in-out',
@@ -33,7 +32,6 @@ export const AirdropNft: React.FC<AirdropNftProperties> = ({collection, setColle
 		}, width: '80%', borderRadius: '15px', mt: 2}}
 	onClick={() => {
 		setCollection(collection);
-		setOpen(true);
 	}}
 	>
 		<mui.CardMedia
