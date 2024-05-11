@@ -4,7 +4,7 @@ use crate::services::local_storage::storage_api::{
     deployment::get_deployment_pointer,
     transaction::{
         check_unconfirmed_transactions, get_transaction_pointer,
-        get_unconfirmed_and_failed_transaction_ids,
+        get_unconfirmed_and_failed_transaction_ids, is_transcation_stored
     },
     transition::is_transition_stored,
 };
@@ -85,6 +85,31 @@ impl LocalClient {
 
     fn change_network_id(&mut self, network_id: String) {
         self.network_id = network_id;
+    }
+
+    async fn get_pub_tsn_by_addr_and_height(
+        &self,
+        addr: &str,
+        start: u32,
+        end: u32,
+        limit: u32
+    ) -> AvailResult<Vec<Value>> {
+        let url = format!(
+            "{}/api/{}/transitions/address/{}/blocks?start={}&end={}&limit={}",
+            self.base_url, self.api_key, addr, start, end, limit
+        );
+
+        let request = self.client.get(url);
+        let response = request.send().await?;
+
+        // Get content from response
+        let content = response.text().await?;
+
+        // Parse the content as JSON
+        Ok(serde_json::from_str::<Value>(&content)?
+            .as_array()
+            .unwrap()
+            .clone())
     }
 
     // Return arrays of records
@@ -488,7 +513,7 @@ pub async fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
                     }
                 };
 
-                match handle_transaction_confirmed(
+                match (
                     pointer_id.as_str(),
                     tx_id,
                     executed_transitions,
@@ -730,11 +755,62 @@ pub async fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
     Ok(())
 }
 
+pub async fn public_scanning<N: Network>(
+    address: &str,
+    start: u32,
+    end: u32,
+    limit: u32
+) -> AvailResult<Vec<Transaction<N>>> {
+    // Setup API and get public transitions
+    // ATTENTION: Different API and base_url to get records
+    let api_key: String = env!("OBSCURA_SDK").to_string();
+    let client = LocalClient::new(
+        api_key,
+        "https://aleo-testnet3.dev.obscura.build".to_string(),
+        "testnet3".to_string(),
+    );
+    let transactions_value = client.get_pub_tsn_by_addr_and_height(address,start, end, limit).await?;
+
+    let mut transactions: Vec<Transaction<N>> = Vec::new();
+    for txn_value in transactions_value {
+        println!("Transaction: \n{:?}\n", txn_value);
+        let transaction = Transaction::<N>::from_str(txn_value.get("transaction").unwrap().as_str().unwrap())?;
+
+        // Check if transaction is not already stored
+        if !is_transcation_stored(transaction.id())? {
+            transactions.push(transaction);
+        };
+    }
+    Ok(transactions)
+}
+
 #[cfg(test)]
 mod record_handling_tests {
     use super::*;
     use crate::models::pointers::record::AvailRecord;
     use avail_common::models::encrypted_data::EncryptedData;
+
+    #[tokio::test]
+    async fn test_public_scanning() {
+        type N = Testnet3;
+
+        let view_key = env!("VIEW_KEY");
+        VIEWSESSION.set_view_session(view_key).unwrap();
+
+        let view_key = VIEWSESSION.get_instance::<N>()?;
+        let address = view_key.to_address();
+        let start: u32 = 2393541;;
+        let end: u32 = start + 100;
+        let limit: u32 = 100;
+        let transactions = public_scanning::<N>(
+            &address.to_string(),
+            start,
+            end,
+            limit
+        ).await;
+
+        assert!(transactions.is_ok());
+    }
 
     #[tokio::test]
     async fn test_get_records() {
