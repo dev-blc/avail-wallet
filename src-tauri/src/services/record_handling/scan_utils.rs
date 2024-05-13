@@ -4,7 +4,7 @@ use crate::services::local_storage::storage_api::{
     deployment::get_deployment_pointer,
     transaction::{
         check_unconfirmed_transactions, get_transaction_pointer,
-        get_unconfirmed_and_failed_transaction_ids, is_transcation_stored
+        get_unconfirmed_and_failed_transaction_ids
     },
     transition::is_transition_stored,
 };
@@ -13,6 +13,7 @@ use crate::services::record_handling::utils::{
     input_spent_check, transition_to_record_pointer,
 };
 use crate::{
+    models::pointers::transition::{TransitionPointer, TransitionType},
     helpers::utils::get_timestamp_from_i64,
     services::local_storage::{
         encrypted_data::handle_block_scan_failure, session::view::VIEWSESSION,
@@ -26,11 +27,13 @@ use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
 use snarkvm::prelude::{
     Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField,
-    Transaction,
+    Transaction, Address
 };
 
 use tauri::{Manager, Window};
 use tauri_plugin_http::reqwest::Client;
+use crate::services::local_storage::encrypted_data::store_encrypted_data;
+use crate::models::pointers::transaction::TransactionPointer;
 
 /**
  * SyncTxnParams struct
@@ -104,12 +107,16 @@ impl LocalClient {
 
         // Get content from response
         let content = response.text().await?;
+        println!("Content: \n{}\n", content);
 
-        // Parse the content as JSON
-        Ok(serde_json::from_str::<Value>(&content)?
-            .as_array()
-            .unwrap()
-            .clone())
+        match serde_json::from_str::<Value>(&content)?.as_array() {
+            Some(transactions) => Ok(transactions.clone()),
+            None => Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Error parsing transactions".to_string(),
+                "No public transitions found".to_string(),
+            ))
+        }
     }
 
     // Return arrays of records
@@ -513,7 +520,7 @@ pub async fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
                     }
                 };
 
-                match (
+                match handle_transaction_confirmed(
                     pointer_id.as_str(),
                     tx_id,
                     executed_transitions,
@@ -760,7 +767,7 @@ pub async fn public_scanning<N: Network>(
     start: u32,
     end: u32,
     limit: u32
-) -> AvailResult<Vec<Transaction<N>>> {
+) -> AvailResult<Vec<TransitionPointer<N>>> {
     // Setup API and get public transitions
     // ATTENTION: Different API and base_url to get records
     let api_key: String = env!("OBSCURA_SDK").to_string();
@@ -769,19 +776,64 @@ pub async fn public_scanning<N: Network>(
         "https://aleo-testnet3.dev.obscura.build".to_string(),
         "testnet3".to_string(),
     );
-    let transactions_value = client.get_pub_tsn_by_addr_and_height(address,start, end, limit).await?;
 
-    let mut transactions: Vec<Transaction<N>> = Vec::new();
-    for txn_value in transactions_value {
-        println!("Transaction: \n{:?}\n", txn_value);
-        let transaction = Transaction::<N>::from_str(txn_value.get("transaction").unwrap().as_str().unwrap())?;
+    // Get public transitions
+    let transactions_value = client.get_pub_tsn_by_addr_and_height(address, start, end, limit).await?;
+    println!("Transactions Value: \n{:?}\n", transactions_value);
 
-        // Check if transaction is not already stored
-        if !is_transcation_stored(transaction.id())? {
-            transactions.push(transaction);
+    let mut transition_pointers: Vec<TransitionPointer<N>> = Vec::new();
+    for transaction in transactions_value {
+        let transition_id_str = transaction.get("transition_id").unwrap().as_str().unwrap();
+
+        // Skip if already stored in local storage
+        if is_transition_stored(transition_id_str)? {
+            continue;
+        }
+
+        let transition_id = match N::TransitionID::from_str(transition_id_str) {
+            Ok(id) => id,
+            Err(_) => return Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Failed to parse transition ID".to_string(),
+                "Failed to parse transition ID".to_string(),
+            )),
         };
+        let transaction_id = match N::TransactionID::from_str(transaction.get("transaction_id").unwrap().as_str().unwrap()) {
+            Ok(id) => id,
+            Err(_) => return Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Failed to parse transaction ID".to_string(),
+                "Failed to parse transaction ID".to_string(),
+            )),
+        };
+
+        // Build transition pointer
+        let transition_pointer: TransitionPointer<N> = TransitionPointer::new(
+            transition_id,
+            transaction_id,
+            transaction.get("transition").unwrap().get("program").unwrap().to_string(),
+            "function_id".to_string(),
+            DateTime::from_timestamp(transaction.get("timestamp").unwrap().as_i64().unwrap(), 0)
+                .unwrap()
+                .with_timezone(&Local),
+            TransitionType::Output,
+            None,
+            None,
+            None,
+            transaction.get("block_height").unwrap().as_u64().unwrap() as u32,
+        );
+
+        println!("Transition Pointer: \n{:?}\n", transition_pointer);
+
+        // Store in local storage
+        let (_, address): (_, Address<N>) = Address::parse(address).unwrap();
+        let encrypted_transition_pointer = transition_pointer.to_encrypted_data(address)?;
+        store_encrypted_data(encrypted_transition_pointer.clone())?;
+
+        transition_pointers.push(transition_pointer);
     }
-    Ok(transactions)
+
+    Ok(transition_pointers)
 }
 
 #[cfg(test)]
@@ -797,10 +849,10 @@ mod record_handling_tests {
         let view_key = env!("VIEW_KEY");
         VIEWSESSION.set_view_session(view_key).unwrap();
 
-        let view_key = VIEWSESSION.get_instance::<N>()?;
+        let view_key = VIEWSESSION.get_instance::<N>().unwrap();
         let address = view_key.to_address();
-        let start: u32 = 2393541;;
-        let end: u32 = start + 100;
+        let start: u32 = 0;;
+        let end: u32 = 2448210;
         let limit: u32 = 100;
         let transactions = public_scanning::<N>(
             &address.to_string(),
@@ -809,6 +861,11 @@ mod record_handling_tests {
             limit
         ).await;
 
+        // Check result status
+        match transactions {
+            Ok(_) => println!("Public Scanning Successful\n"),
+            Err(ref e) => println!("Public Scanning Failed\n {}\n", e),
+        }
         assert!(transactions.is_ok());
     }
 
