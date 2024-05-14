@@ -19,6 +19,7 @@ import RiseLoader from 'react-spinners/RiseLoader';
 import SyncIcon from '@mui/icons-material/Sync';
 import WarningIcon from '@mui/icons-material/Warning';
 import NetworkDownDialog from '../components/dialogs/network_down';
+import Points from '../components/quests/points/points';
 
 // State functions
 import {getName} from '../services/states/utils';
@@ -32,7 +33,8 @@ import Asset from '../components/assets/asset';
 import {ScanProgressEvent, type TxScanResponse} from '../types/events';
 import {type AvailError, AvailErrorType} from '../types/errors';
 import {type SuccinctAvailEvent} from '../types/avail-events/event';
-import {NetworkStatus} from '../services/util/network';
+import {NetworkStatus, switchToObscura} from '../services/util/network';
+import {type PointsResponse, testPoints} from '../types/quests/quest_types';
 
 // Context hooks
 import {useScan} from '../context/ScanContext';
@@ -54,12 +56,13 @@ import {
 	set_first_visit, get_first_visit, set_visit_session_flag, get_visit_session_flag,
 } from '../services/storage/localStorage';
 import {os} from '../services/util/open';
-import {pre_install_inclusion_prover} from '../services/transfer/inclusion';
+import {preInstallInclusionProver} from '../services/transfer/inclusion';
 import {sync_backup} from '../services/scans/backup';
 import {scan_blocks} from '../services/scans/blocks';
 import {scan_messages} from '../services/scans/encrypted_messages';
 import {getNetwork, getBackupFlag} from '../services/storage/persistent';
 import {getNetworkStatus} from '../services/util/network';
+import {getPoints} from '../services/quests/quests';
 
 import '../styles/animations.css';
 
@@ -110,6 +113,9 @@ function Home() {
 	/* --Events || Balance || Assets-- */
 	const [balance, setBalance] = React.useState<number>(0);
 	const [assets, setAssets] = React.useState<AssetType[]>([]);
+
+	/* --Points-- */
+	const [points, setPoints] = React.useState<PointsResponse[]>([]);
 
 	const [transferState, setTransferState] = React.useState<boolean>(false);
 
@@ -254,7 +260,7 @@ function Home() {
 
 	const handleScan = () => {
 		// To get the initial balance and transactions
-		scan_messages().then(res => {
+		scan_messages().then(async res => {
 			getNetworkStatus().then(async status => {
 				setNetworkStatus(status);
 				if (status === NetworkStatus.Down) {
@@ -262,12 +268,11 @@ function Home() {
 				}
 
 				console.log('Network status: ' + status);
-
-				await handleBlockScan(res);
 			}).catch(() => {
 				setMessage('Issue checking network status.');
 				setErrorAlert(true);
 			});
+			await handleBlockScan(res);
 		}).catch(async err => {
 			const error = err as AvailError;
 			console.log(error.error_type);
@@ -296,6 +301,11 @@ function Home() {
 			const firstVisitSession = get_visit_session_flag();
 
 			if (!firstVisitSession) {
+				switchToObscura().catch(() => {
+					setMessage('Issue switching to Obscura.');
+					setErrorAlert(true);
+				});
+
 				getBackupFlag().then(async res => {
 					if (res) {
 						await sync_backup();
@@ -303,6 +313,13 @@ function Home() {
 				}).catch(error => {
 					console.log(error);
 				});
+
+				// Info notify user that inclusion.prover is being installed
+				preInstallInclusionProver().catch(() => {
+					setMessage('Issue checking Aleo resources.');
+					setErrorAlert(true);
+				});
+
 				set_visit_session_flag();
 			}
 
@@ -312,15 +329,6 @@ function Home() {
 			if (!firstVisitPersistent) {
 				set_first_visit();
 				setBackupDialog(true);
-
-				// Info notify user that inclusion.prover is being installed
-				pre_install_inclusion_prover().then(() => {
-					setMessage('Pre installing Aleo SRS...');
-					setSuccessAlert(true);
-				}).catch(() => {
-					setMessage('Issue pre installing Aleo SRS');
-					setErrorAlert(true);
-				});
 			}
 
 			const transferState = sessionStorage.getItem('transferState');
@@ -346,6 +354,13 @@ function Home() {
 
 			getNetwork().then(res => {
 				setNetwork(res);
+			}).catch(error => {
+				console.log(error);
+			});
+
+			getPoints().then(res => {
+				console.log(res);
+				setPoints(res);
 			}).catch(error => {
 				console.log(error);
 			});
@@ -463,33 +478,38 @@ function Home() {
 						}
 					</mui.Box>
 
-					{/* Balance section */}
-					<mui.Box sx={{
-						background: 'linear-gradient(90deg, #1E1D1D 0%, #111111 100%)', display: 'flex', flexDirection: 'column', p: 2, borderRadius: '30px', width: '65%',
-					}}>
-						<mui.Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
-							<SubtitleText sx={{ color: '#a3a3a3' }}>
-								{t('home.balance')}
-							</SubtitleText>
-							<RotatingSyncIcon onClick={() => {
-								shouldRotate ? {} : handleScan();
-							}} />
-						</mui.Box>
-
-						<Balance props={{ balance }} />
-
+					<mui.Box sx={{display: 'flex', flexDirection: 'row', width: '100%', alignItems: 'center', justifyContent: 'space-between'}}>
+						{/* Balance section */}
 						<mui.Box sx={{
-							display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '2%',
+							background: 'linear-gradient(90deg, #1E1D1D 0%, #111111 100%)', display: 'flex', flexDirection: 'column', p: 2, borderRadius: '30px', width: '65%',
 						}}>
-							<TransferCTAButton text={t('home.send')} onClick={() => {
-								navigate('/send');
-							}} />
-							<mui.Box sx={{ width: '4%' }} />
-							<TransferCTAButton text={t('home.receive')} onClick={() => {
-								setReceiveDialogOpen(true);
-							}} />
+							<mui.Box sx={{ display: 'flex', flexDirection: 'row', alignItems: 'center' }}>
+								<SubtitleText sx={{ color: '#a3a3a3' }}>
+									{t('home.balance')}
+								</SubtitleText>
+								<RotatingSyncIcon onClick={() => {
+									shouldRotate ? {} : handleScan();
+								}} />
+							</mui.Box>
+
+							<Balance props={{ balance }} />
+
+							<mui.Box sx={{
+								display: 'flex', flexDirection: 'row', alignItems: 'center', mt: '2%',
+							}}>
+								<TransferCTAButton text={t('home.send')} onClick={() => {
+									navigate('/send');
+								}} />
+								<mui.Box sx={{ width: '4%' }} />
+								<TransferCTAButton text={t('home.receive')} onClick={() => {
+									setReceiveDialogOpen(true);
+								}} />
+							</mui.Box>
+
 						</mui.Box>
 
+						{/* Points section */}
+						{points.length > 0 && <Points points={points} />}
 					</mui.Box>
 
 					<SubtitleText sx={{

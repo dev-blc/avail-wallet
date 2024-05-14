@@ -1,39 +1,48 @@
 use super::utils::{handle_deployment_confirmed, handle_deployment_rejection, sync_transaction};
 
-use crate::services::local_storage::storage_api::{
-    deployment::get_deployment_pointer,
-    transaction::{
-        check_unconfirmed_transactions, get_transaction_pointer,
-        get_unconfirmed_and_failed_transaction_ids
-    },
-    transition::is_transition_stored,
-};
 use crate::services::record_handling::utils::{
     get_executed_transitions, handle_transaction_confirmed, handle_transaction_rejection,
     input_spent_check, transition_to_record_pointer,
 };
 use crate::{
-    models::pointers::transition::{TransitionPointer, TransitionType},
+    api::aleo_client::setup_client,
+    services::local_storage::{
+        persistent_storage::{get_address_string, get_last_sync, get_network},
+        storage_api::{
+            deployment::get_deployment_pointer,
+            transaction::{
+                check_unconfirmed_transactions, get_transaction_pointer,
+                get_unconfirmed_and_failed_transaction_ids,
+            },
+            transition::is_transition_stored,
+        },
+    },
+};
+use crate::{
     helpers::utils::get_timestamp_from_i64,
+    models::pointers::transition::{TransitionPointer, TransitionType},
     services::local_storage::{
         encrypted_data::handle_block_scan_failure, session::view::VIEWSESSION,
     },
 };
 
-use avail_common::errors::{AvailError, AvailErrorType, AvailResult};
+use avail_common::{
+    errors::{AvailError, AvailErrorType, AvailResult},
+    models::network::SupportedNetworks,
+};
 use chrono::{DateTime, Local};
 
 use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
 use snarkvm::prelude::{
-    Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField,
-    Transaction, Address
+    Address, Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField,
+    Transaction,
 };
 
+use crate::models::pointers::transaction::TransactionPointer;
+use crate::services::local_storage::encrypted_data::store_encrypted_data;
 use tauri::{Manager, Window};
 use tauri_plugin_http::reqwest::Client;
-use crate::services::local_storage::encrypted_data::store_encrypted_data;
-use crate::models::pointers::transaction::TransactionPointer;
 
 /**
  * SyncTxnParams struct
@@ -95,7 +104,7 @@ impl LocalClient {
         addr: &str,
         start: u32,
         end: u32,
-        limit: u32
+        limit: u32,
     ) -> AvailResult<Vec<Value>> {
         let url = format!(
             "{}/api/{}/transitions/address/{}/blocks?start={}&end={}&limit={}",
@@ -103,10 +112,29 @@ impl LocalClient {
         );
 
         let request = self.client.get(url);
-        let response = request.send().await?;
+        let response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting public transaction history.".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        let content = response.text().await?;
+        let content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting public transaction history.".to_string(),
+                ))
+            }
+        };
+
         println!("Content: \n{}\n", content);
 
         match serde_json::from_str::<Value>(&content)?.as_array() {
@@ -115,7 +143,7 @@ impl LocalClient {
                 AvailErrorType::Internal,
                 "Error parsing transactions".to_string(),
                 "No public transitions found".to_string(),
-            ))
+            )),
         }
     }
 
@@ -127,10 +155,28 @@ impl LocalClient {
         );
 
         let request = self.client.get(url);
-        let response = request.send().await?;
+        let response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting records".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        let content = response.text().await?;
+        let content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting records".to_string(),
+                ))
+            }
+        };
 
         // Parse the content as JSON
         Ok(serde_json::from_str::<Value>(&content)?
@@ -147,10 +193,28 @@ impl LocalClient {
         };
 
         let request = self.client.get(url);
-        let response = request.send().await?;
+        let response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        let content = response.text().await?;
+        let content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Parse the content as JSON
         Ok(serde_json::from_str::<String>(&content)?)
@@ -166,10 +230,28 @@ impl LocalClient {
         );
 
         let request = self.client.get(url);
-        let response = request.send().await?;
+        let response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting transaction".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        let content = response.text().await?;
+        let content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting transaction".to_string(),
+                ))
+            }
+        };
 
         // Parse the content as JSON
         Ok(serde_json::from_str::<Transaction<N>>(&content)?)
@@ -185,10 +267,28 @@ impl LocalClient {
         );
 
         let mut request = self.client.get(url);
-        let mut response = request.send().await?;
+        let mut response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting block from transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        let mut content = response.text().await?;
+        let mut content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting block from transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Parse the content as JSON
         let block_hash = serde_json::from_str::<String>(&content)?;
@@ -198,10 +298,28 @@ impl LocalClient {
             self.base_url, self.api_key, self.network_id
         );
         request = self.client.get(url);
-        response = request.send().await?;
+        response = match request.send().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting block from transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Get content from response
-        content = response.text().await?;
+        content = match response.text().await {
+            Ok(res) => res,
+            Err(e) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    e.to_string(),
+                    "Error getting block from transaction ID".to_string(),
+                ))
+            }
+        };
 
         // Parse the content as JSON
         Ok(serde_json::from_str::<Block<N>>(&content)?)
@@ -469,13 +587,35 @@ pub async fn get_sync_txn_params<N: Network>(
 }
 
 /**
+ * Handle state of unconfirmed and failed transactions
+ */
+#[tauri::command(rename_all = "snake_case")]
+pub async fn handle_unconfirmed_transactions() -> AvailResult<()> {
+    let network = get_network()?;
+    match SupportedNetworks::from_str(network.as_str()) {
+        Ok(SupportedNetworks::Testnet3) => {
+            handle_unconfirmed_transactions_raw::<Testnet3>().await?;
+        }
+        _ => {
+            return Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Network not supported".to_string(),
+                "Network not supported".to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+/**
  * Convert pending transactions to failed if they have expired.
  * Convert pending transactions to confirmed if they have been confirmed.
  * Convert pending transactions to rejected if they have been rejected.
  * Convert failed transactions to confirmed if they have been confirmed.
  * Convert failed transactions to rejected if they have been rejected.
  */
-pub async fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
+pub async fn handle_unconfirmed_transactions_raw<N: Network>() -> AvailResult<()> {
     let view_key = VIEWSESSION.get_instance::<N>()?;
     let address = view_key.to_address();
 
@@ -762,11 +902,37 @@ pub async fn handle_unconfirmed_transactions<N: Network>() -> AvailResult<()> {
     Ok(())
 }
 
+/**
+ * Scan public transitions.
+ * @return The public transitions that are sent to the user.
+ */
+#[tauri::command(rename_all = "snake_case")]
+pub async fn scan_public_transitions(end_height: u32) -> AvailResult<()> {
+    let address = get_address_string()?;
+    let start = get_last_sync()?;
+    let network = get_network()?;
+
+    match SupportedNetworks::from_str(network.as_str()) {
+        Ok(SupportedNetworks::Testnet3) => {
+            public_scanning::<Testnet3>(&address, start, end_height, 10000000).await?;
+        }
+        _ => {
+            return Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Network not supported".to_string(),
+                "Network not supported".to_string(),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
 pub async fn public_scanning<N: Network>(
     address: &str,
     start: u32,
     end: u32,
-    limit: u32
+    limit: u32,
 ) -> AvailResult<Vec<TransitionPointer<N>>> {
     // Setup API and get public transitions
     // ATTENTION: Different API and base_url to get records
@@ -778,7 +944,9 @@ pub async fn public_scanning<N: Network>(
     );
 
     // Get public transitions
-    let transactions_value = client.get_pub_tsn_by_addr_and_height(address, start, end, limit).await?;
+    let transactions_value = client
+        .get_pub_tsn_by_addr_and_height(address, start, end, limit)
+        .await?;
     println!("Transactions Value: \n{:?}\n", transactions_value);
 
     let mut transition_pointers: Vec<TransitionPointer<N>> = Vec::new();
@@ -792,26 +960,37 @@ pub async fn public_scanning<N: Network>(
 
         let transition_id = match N::TransitionID::from_str(transition_id_str) {
             Ok(id) => id,
-            Err(_) => return Err(AvailError::new(
-                AvailErrorType::Internal,
-                "Failed to parse transition ID".to_string(),
-                "Failed to parse transition ID".to_string(),
-            )),
+            Err(_) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    "Failed to parse transition ID".to_string(),
+                    "Failed to parse transition ID".to_string(),
+                ))
+            }
         };
-        let transaction_id = match N::TransactionID::from_str(transaction.get("transaction_id").unwrap().as_str().unwrap()) {
+        let transaction_id = match N::TransactionID::from_str(
+            transaction.get("transaction_id").unwrap().as_str().unwrap(),
+        ) {
             Ok(id) => id,
-            Err(_) => return Err(AvailError::new(
-                AvailErrorType::Internal,
-                "Failed to parse transaction ID".to_string(),
-                "Failed to parse transaction ID".to_string(),
-            )),
+            Err(_) => {
+                return Err(AvailError::new(
+                    AvailErrorType::Internal,
+                    "Failed to parse transaction ID".to_string(),
+                    "Failed to parse transaction ID".to_string(),
+                ))
+            }
         };
 
         // Build transition pointer
         let transition_pointer: TransitionPointer<N> = TransitionPointer::new(
             transition_id,
             transaction_id,
-            transaction.get("transition").unwrap().get("program").unwrap().to_string(),
+            transaction
+                .get("transition")
+                .unwrap()
+                .get("program")
+                .unwrap()
+                .to_string(),
             "function_id".to_string(),
             DateTime::from_timestamp(transaction.get("timestamp").unwrap().as_i64().unwrap(), 0)
                 .unwrap()
@@ -851,15 +1030,10 @@ mod record_handling_tests {
 
         let view_key = VIEWSESSION.get_instance::<N>().unwrap();
         let address = view_key.to_address();
-        let start: u32 = 0;;
+        let start: u32 = 0;
         let end: u32 = 2448210;
         let limit: u32 = 100;
-        let transactions = public_scanning::<N>(
-            &address.to_string(),
-            start,
-            end,
-            limit
-        ).await;
+        let transactions = public_scanning::<N>(&address.to_string(), start, end, limit).await;
 
         // Check result status
         match transactions {

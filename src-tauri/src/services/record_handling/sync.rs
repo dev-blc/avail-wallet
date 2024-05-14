@@ -178,10 +178,7 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
         SupportedNetworks::Testnet3 => {
             type N = Testnet3;
 
-            handle_unconfirmed_transactions::<N>().await?;
-
-            let view_key = env!("VIEW_KEY");
-            VIEWSESSION.set_view_session(view_key)?;
+            let view_key = VIEWSESSION.get_instance::<N>()?;
 
             let timerx = std::time::Instant::now();
             let records = get_records_new::<N>(last_sync, height).await?;
@@ -305,8 +302,6 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
 
             let view_key = env!("VIEW_KEY");
             VIEWSESSION.set_view_session(view_key).unwrap();
-
-            handle_unconfirmed_transactions::<N>().await.unwrap();
 
             let records = get_records_new::<N>(last_sync, height).await.unwrap();
 
