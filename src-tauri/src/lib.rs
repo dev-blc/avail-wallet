@@ -3,7 +3,10 @@ pub mod helpers;
 pub mod models;
 pub mod services;
 
-use crate::services::record_handling::utils::get_all_nft_data;
+use crate::services::record_handling::{
+    scan_utils::{handle_unconfirmed_transactions, scan_public_transitions},
+    utils::get_all_nft_data,
+};
 use services::account::generation::create_seed_phrase_wallet;
 use services::account::generation::import_wallet;
 use services::account::phrase_recovery::recover_wallet_from_seed_phrase;
@@ -101,6 +104,8 @@ pub fn run() {
             blocks_sync,
             sync_backup,
             migrate_encrypted_data,
+            scan_public_transitions,
+            handle_unconfirmed_transactions,
             /* Avail Services */
             get_avail_event,
             get_avail_events,

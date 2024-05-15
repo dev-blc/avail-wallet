@@ -168,9 +168,7 @@ pub async fn txs_sync_raw<N: Network>() -> AvailResult<TxScanResponse> {
 #[tauri::command(rename_all = "snake_case")]
 pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
     let network = get_network()?;
-    //let last_sync = get_last_sync()?;
-
-    let last_sync = 2220888u32;
+    let last_sync = get_last_sync()?;
 
     print!("From Last Sync: {:?} to height: {:?}", last_sync, height);
 
@@ -184,31 +182,7 @@ pub async fn blocks_sync(height: u32, window: Window) -> AvailResult<bool> {
             let records = get_records_new::<N>(last_sync, height).await?;
             println!("Time elapsed in getting records is: {:?}", timerx.elapsed());
 
-            let sync_txn_params = get_sync_txn_params::<N>(records, Some(window)).await?;
-
-            let mut res: bool = false;
-
-            let timer_sync = std::time::Instant::now();
-
-            // Sync transactions
-            for params in sync_txn_params {
-                let (_, _, found) = sync_transaction::<Testnet3>(
-                    &params.transaction,
-                    params.block_height,
-                    params.timestamp,
-                    None,
-                    None,
-                )?;
-
-                if !res {
-                    res = found;
-                }
-            }
-
-            println!(
-                "Time elapsed in syncing transactions is: {:?}",
-                timer_sync.elapsed()
-            );
+            let res = get_sync_txn_params::<N>(records, Some(window)).await?;
 
             res
         }
@@ -305,24 +279,7 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
 
             let records = get_records_new::<N>(last_sync, height).await.unwrap();
 
-            let sync_txn_params = get_sync_txn_params::<N>(records, None).await.unwrap();
-
-            let mut res: bool = false;
-
-            // Sync transactions
-            for params in sync_txn_params {
-                let (_, _, found) = sync_transaction::<Testnet3>(
-                    &params.transaction,
-                    params.block_height,
-                    params.timestamp,
-                    None,
-                    None,
-                )?;
-
-                if !res {
-                    res = found;
-                }
-            }
+            let res = get_sync_txn_params::<N>(records, None).await.unwrap();
 
             Ok(res)
         }

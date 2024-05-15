@@ -1,5 +1,6 @@
 use super::utils::{handle_deployment_confirmed, handle_deployment_rejection, sync_transaction};
 
+use crate::services::local_storage::persistent_storage::update_last_sync;
 use crate::services::record_handling::utils::{
     get_executed_transitions, handle_transaction_confirmed, handle_transaction_rejection,
     input_spent_check, transition_to_record_pointer,
@@ -139,11 +140,17 @@ impl LocalClient {
 
         match serde_json::from_str::<Value>(&content)?.as_array() {
             Some(transactions) => Ok(transactions.clone()),
-            None => Err(AvailError::new(
-                AvailErrorType::Internal,
-                "Error parsing transactions".to_string(),
-                "No public transitions found".to_string(),
-            )),
+            None => {
+                if content.contains("not found") {
+                    Ok(vec![])
+                } else {
+                    Err(AvailError::new(
+                        AvailErrorType::Internal,
+                        "Error parsing transactions".to_string(),
+                        "No public transitions found".to_string(),
+                    ))
+                }
+            }
         }
     }
 
@@ -369,13 +376,20 @@ fn is_owner_direct<N: Network>(
  * @param records The records to convert.
  * @return The transitions.
  */
-fn owned_records_to_transitions<N: Network>(
+async fn owned_records_to_transitions<N: Network>(
     records: Vec<Value>,
     window: Option<Window>,
-) -> AvailResult<Vec<String>> {
-    let mut transitions = Vec::new();
-
+) -> AvailResult<bool> {
     let records_len = records.len();
+
+    let api_key = env!("TESTNET_API_OBSCURA").to_string();
+    let client = LocalClient::new(
+        api_key,
+        "https://aleo-testnet3.obscura.build".to_string(),
+        "testnet3".to_string(),
+    );
+
+    let mut res = false;
 
     for (index, record) in records.iter().enumerate() {
         /* -- Calculate Scan Progress Percentage-- */
@@ -430,13 +444,17 @@ fn owned_records_to_transitions<N: Network>(
                     println!("Transition already stored\n");
                 }
                 false => {
-                    transitions.push(transition_id.to_string());
+                    let found =
+                        sync_private_transaction::<N>(transition_id.to_string(), &client).await?;
+                    if !res {
+                        res = found;
+                    }
                 }
             }
         };
     }
 
-    Ok(transitions)
+    Ok(res)
 }
 
 /**
@@ -531,6 +549,56 @@ async fn convert_to_sync_txn_params<N: Network>(
     Ok(sync_txn_params)
 }
 
+async fn sync_private_transaction<N: Network>(
+    transition: String,
+    client: &LocalClient,
+) -> AvailResult<bool> {
+    // Get block
+    let transaction_id = client
+        .get_transaction_id_from_transition(&transition)
+        .await?;
+
+    let block: Block<N> = client
+        .get_block_from_transaction_id(&transaction_id)
+        .await?;
+
+    // Populate sync transaction parameters
+    let block_height = block.height();
+    let timestamp = block.timestamp();
+    let mut confirmed_transaction: Option<ConfirmedTransaction<N>> = None;
+
+    // Search for matching transaction from block
+    let transactions = block.transactions();
+    for confirmed_txn in transactions.iter() {
+        if confirmed_txn.id().to_string() == transaction_id {
+            println!("Found confirmed transaction:\n{:?}\n", confirmed_txn);
+            confirmed_transaction = Some(confirmed_txn.clone());
+            break;
+        }
+    }
+
+    let confirmed_transaction = match confirmed_transaction {
+        Some(txn) => txn,
+        None => {
+            return Err(AvailError::new(
+                AvailErrorType::Internal,
+                "Error getting confirmed transaction".to_string(),
+                "Error getting confirmed transaction".to_string(),
+            ))
+        }
+    };
+
+    let timestamp = DateTime::from_timestamp(timestamp, 0)
+        .unwrap()
+        .with_timezone(&Local);
+
+    let (_, _, found) =
+        sync_transaction(&confirmed_transaction, block_height, timestamp, None, None)?;
+    update_last_sync(block_height)?;
+
+    Ok(found)
+}
+
 /**
  * Get records.
  * @param start The start block.
@@ -558,32 +626,14 @@ pub async fn get_records_new<N: Network>(start: u32, end: u32) -> AvailResult<(V
 pub async fn get_sync_txn_params<N: Network>(
     records: Vec<Value>,
     window: Option<Window>,
-) -> AvailResult<Vec<SyncTxnParams<N>>> {
+) -> AvailResult<bool> {
     let timer1 = std::time::Instant::now();
     // Get transitions from owned records
-    let transitions = owned_records_to_transitions::<N>(records, window)?;
+    let found = owned_records_to_transitions::<N>(records, window).await?;
 
     println!("Owned records to transitions took: {:?}", timer1.elapsed());
 
-    // Prepare API client
-    let api_key = env!("TESTNET_API_OBSCURA").to_string();
-    let client = LocalClient::new(
-        api_key,
-        "https://aleo-testnet3.obscura.build".to_string(),
-        "testnet3".to_string(),
-    );
-
-    let timer2 = std::time::Instant::now();
-
-    // Get sync transaction parameters
-    let sync_txn_params = convert_to_sync_txn_params(transitions, &client).await?;
-
-    println!(
-        "Convert to sync transaction parameters took: {:?}",
-        timer2.elapsed()
-    );
-
-    Ok(sync_txn_params)
+    Ok(found)
 }
 
 /**
@@ -981,24 +1031,65 @@ pub async fn public_scanning<N: Network>(
             }
         };
 
+        // The following is an example of a transaction json
+        /*
+        {"transaction_id":"at1359qa8zhns7stex2mwr9zp0cg4grk762728pf0ew6v35zvmmnuysj906kt","address":"aleo1wagnjzxmcgnv9ylt9fq9l0dpckfctu0v0rgwy8acera8z4crhsqsd4y50t","transition_id":"au12lhr55cd0cx2hfj02jwv67mw0k8gay5ja80h94mdzfu322q75gfqxq0z28","transition":{"outputs":[{"type":"future","value":"{\n  program_id: credits.aleo,\n  function_name: transfer_public,\n  arguments: [\n    aleo1nnrfst0v0zrmv809y9l55denfldx3ryn0nmelws0ffz0hx9mxcys84jxxn,\n    aleo1wagnjzxmcgnv9ylt9fq9l0dpckfctu0v0rgwy8acera8z4crhsqsd4y50t,\n    15000000u64\n  ]\n}","id":"1359775030542733459528360737348885254483062337849835173681237073659074399191field"}],"inputs":[{"type":"public","value":"aleo1wagnjzxmcgnv9ylt9fq9l0dpckfctu0v0rgwy8acera8z4crhsqsd4y50t","id":"4522705336815412438532135044700648093567627243157858659169184987618711287804field"},{"type":"public","value":"15000000u64","id":"836464504194845084369176157858483291286292787268091300188342178104646503437field"}],"function":"transfer_public","id":"au12lhr55cd0cx2hfj02jwv67mw0k8gay5ja80h94mdzfu322q75gfqxq0z28","program":"credits.aleo","tpk":"6196389413533230888635492453117030667546658082628926852484575608154933841268group","tcm":"6041088549135109006518828171910897628092291772787042606797450503036943625543field"},"timestamp":1715755070,"block_height":2492695}
+         */
+
+        // get the inputs array
+        let inputs = transaction
+            .get("transition")
+            .unwrap()
+            .get("inputs")
+            .unwrap()
+            .as_array()
+            .unwrap();
+        // loop through the inputs and see if there is one that has a value that parses into u64
+        let mut value: Option<f64> = None;
+
+        // find amount
+        for input in inputs {
+            let input_value = input.get("value").unwrap().as_str().unwrap();
+            let input = &input_value[..input_value.len() - 3];
+            match input.parse::<u64>() {
+                Ok(val) => {
+                    value = Some(val as f64 / 1000000.0);
+                    break;
+                }
+                Err(_) => continue,
+            };
+        }
+
+        let program_id = transaction
+            .get("transition")
+            .unwrap()
+            .get("program")
+            .unwrap()
+            .to_string();
+        let function_id = transaction
+            .get("transition")
+            .unwrap()
+            .get("function")
+            .unwrap()
+            .to_string();
+
+        // remove first character and last character
+        let program_id = &program_id[1..program_id.len() - 1];
+        let function_id = &function_id[1..function_id.len() - 1];
+
         // Build transition pointer
         let transition_pointer: TransitionPointer<N> = TransitionPointer::new(
             transition_id,
             transaction_id,
-            transaction
-                .get("transition")
-                .unwrap()
-                .get("program")
-                .unwrap()
-                .to_string(),
-            "function_id".to_string(),
+            program_id.to_string(),
+            function_id.to_string(),
             DateTime::from_timestamp(transaction.get("timestamp").unwrap().as_i64().unwrap(), 0)
                 .unwrap()
                 .with_timezone(&Local),
             TransitionType::Output,
             None,
             None,
-            None,
+            value,
             transaction.get("block_height").unwrap().as_u64().unwrap() as u32,
         );
 
@@ -1081,28 +1172,8 @@ mod record_handling_tests {
         let start: u32 = current_block - 10;
         let records = get_records_new::<N>(start, current_block).await.unwrap();
 
-        // TODO : Check if the record is already stored
+        let res = get_sync_txn_params::<N>(records, None).await.unwrap();
 
-        let sync_txn_params = get_sync_txn_params::<N>(records, None).await.unwrap();
-
-        let mut res: bool = false;
-
-        // Sync transactions
-        for params in sync_txn_params {
-            let (_, _, found) = sync_transaction::<Testnet3>(
-                &params.transaction,
-                params.block_height,
-                params.timestamp,
-                None,
-                None,
-            )
-            .unwrap();
-
-            if !res {
-                res = found;
-            }
-        }
-        println!("Result of sync_transaction:\n{:?}\n", res);
         assert!(res);
     }
 }
