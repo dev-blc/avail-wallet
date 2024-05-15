@@ -274,8 +274,8 @@ pub async fn blocks_sync_test(height: u32) -> AvailResult<bool> {
         SupportedNetworks::Testnet3 => {
             type N = Testnet3;
 
-            let view_key = env!("VIEW_KEY");
-            VIEWSESSION.set_view_session(view_key).unwrap();
+            let view_key = std::env::var("VIEW_KEY").unwrap();
+            VIEWSESSION.set_view_session(&view_key).unwrap();
 
             let records = get_records_new::<N>(last_sync, height).await.unwrap();
 

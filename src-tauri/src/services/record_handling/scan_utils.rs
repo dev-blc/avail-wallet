@@ -1116,8 +1116,8 @@ mod record_handling_tests {
     async fn test_public_scanning() {
         type N = Testnet3;
 
-        let view_key = env!("VIEW_KEY");
-        VIEWSESSION.set_view_session(view_key).unwrap();
+        let view_key = std::env::var("VIEW_KEY").unwrap();
+        VIEWSESSION.set_view_session(&view_key).unwrap();
 
         let view_key = VIEWSESSION.get_instance::<N>().unwrap();
         let address = view_key.to_address();
@@ -1138,8 +1138,8 @@ mod record_handling_tests {
     async fn test_get_records() {
         type N = Testnet3;
 
-        let view_key = env!("VIEW_KEY");
-        VIEWSESSION.set_view_session(view_key).unwrap();
+        let view_key = std::env::var("VIEW_KEY").unwrap();
+        VIEWSESSION.set_view_session(&view_key).unwrap();
         let current_block: u32 = 2087986;
         let start: u32 = current_block - 100;
         let records = get_records_new::<N>(start, current_block).await;
@@ -1151,8 +1151,8 @@ mod record_handling_tests {
     async fn test_get_sync_txn_params() {
         type N = Testnet3;
 
-        let view_key = env!("VIEW_KEY");
-        VIEWSESSION.set_view_session(view_key).unwrap();
+        let view_key = std::env::var("VIEW_KEY").unwrap();
+        VIEWSESSION.set_view_session(&view_key).unwrap();
         let current_block: u32 = 2087986;
         let start: u32 = current_block - 10;
         let records = get_records_new::<N>(start, current_block).await.unwrap();
@@ -1166,8 +1166,8 @@ mod record_handling_tests {
     async fn test_sync_transaction() {
         type N = Testnet3;
 
-        let view_key = env!("VIEW_KEY");
-        VIEWSESSION.set_view_session(view_key).unwrap();
+        let view_key = std::env::var("VIEW_KEY").unwrap();
+        VIEWSESSION.set_view_session(&view_key).unwrap();
         let current_block: u32 = 2249244;
         let start: u32 = current_block - 10;
         let records = get_records_new::<N>(start, current_block).await.unwrap();

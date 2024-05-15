@@ -230,7 +230,12 @@ function Home() {
 			// Set Scanning state to true
 
 			handleUnconfirmedTransactions().catch(error => {
-				console.log(error);
+				const err = error as AvailError;
+				if (err.internal_msg.includes('null')) {
+					console.log('No unconfirmed transactions');
+					return;
+				}
+
 				setMessage('Failed to handle unconfirmed transactions');
 				setErrorAlert(true);
 			});
