@@ -36,7 +36,7 @@ use chrono::{DateTime, Local};
 use serde_json::Value;
 use snarkvm::ledger::transactions::ConfirmedTransaction;
 use snarkvm::prelude::{
-    Address, Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, Testnet3, ToField,
+    Address, Block, Field, FromStr, Group, Network, Parser, Scalar, Serialize, TestnetV0, ToField,
     Transaction,
 };
 
@@ -644,7 +644,7 @@ pub async fn handle_unconfirmed_transactions() -> AvailResult<()> {
     let network = get_network()?;
     match SupportedNetworks::from_str(network.as_str()) {
         Ok(SupportedNetworks::Testnet3) => {
-            handle_unconfirmed_transactions_raw::<Testnet3>().await?;
+            handle_unconfirmed_transactions_raw::<TestnetV0>().await?;
         }
         _ => {
             return Err(AvailError::new(
@@ -964,7 +964,7 @@ pub async fn scan_public_transitions(end_height: u32) -> AvailResult<()> {
 
     match SupportedNetworks::from_str(network.as_str()) {
         Ok(SupportedNetworks::Testnet3) => {
-            public_scanning::<Testnet3>(&address, start, end_height, 10000000).await?;
+            public_scanning::<TestnetV0>(&address, start, end_height, 10000000).await?;
         }
         _ => {
             return Err(AvailError::new(
@@ -1114,7 +1114,7 @@ mod record_handling_tests {
 
     #[tokio::test]
     async fn test_public_scanning() {
-        type N = Testnet3;
+        type N = TestnetV0;
 
         let view_key = std::env::var("VIEW_KEY").unwrap();
         VIEWSESSION.set_view_session(&view_key).unwrap();
@@ -1136,7 +1136,7 @@ mod record_handling_tests {
 
     #[tokio::test]
     async fn test_get_records() {
-        type N = Testnet3;
+        type N = TestnetV0;
 
         let view_key = std::env::var("VIEW_KEY").unwrap();
         VIEWSESSION.set_view_session(&view_key).unwrap();
@@ -1149,7 +1149,7 @@ mod record_handling_tests {
 
     #[tokio::test]
     async fn test_get_sync_txn_params() {
-        type N = Testnet3;
+        type N = TestnetV0;
 
         let view_key = std::env::var("VIEW_KEY").unwrap();
         VIEWSESSION.set_view_session(&view_key).unwrap();
@@ -1164,7 +1164,7 @@ mod record_handling_tests {
 
     #[tokio::test]
     async fn test_sync_transaction() {
-        type N = Testnet3;
+        type N = TestnetV0;
 
         let view_key = std::env::var("VIEW_KEY").unwrap();
         VIEWSESSION.set_view_session(&view_key).unwrap();

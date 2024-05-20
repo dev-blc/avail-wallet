@@ -4,7 +4,10 @@ use serde::{Deserialize, Serialize};
 use std::sync::RwLock;
 
 use avail_common::aleo_tools::api::AleoAPIClient;
-use snarkvm::{console::network::Testnet3, prelude::Network};
+use snarkvm::{
+    console::network::{MainnetV0, TestnetV0},
+    prelude::Network,
+};
 
 use crate::models::event::Network as EventNetwork;
 use crate::services::local_storage::persistent_storage::{
@@ -150,7 +153,7 @@ impl<N: Network> AleoClient<N> {
         let new_client = match network {
             "testnet3" => {
                 update_network(EventNetwork::AleoTestnet);
-                AleoClient::<Testnet3>::testnet3()?
+                AleoClient::<TestnetV0>::testnet3()?
             }
             //"devnet" => AleoClient::<Devnet>::devnet()?,
             //"mainnet" => AleoClient::<Mainnet>::mainnet()?,
@@ -183,12 +186,13 @@ impl<N: Network> AleoClient<N> {
     }
 }
 
-pub static ALEO_CLIENT: Lazy<RwLock<AleoClient<Testnet3>>> =
-    Lazy::new(|| RwLock::new(AleoClient::<Testnet3>::testnet3().unwrap()));
+//TODO - Make this compatible with different network types for mainnet.
+pub static ALEO_CLIENT: Lazy<RwLock<AleoClient<TestnetV0>>> =
+    Lazy::new(|| RwLock::new(AleoClient::<TestnetV0>::testnet3().unwrap()));
 
 #[test]
 fn test_new_client() {
-    let api_client = setup_local_client::<Testnet3>();
+    let api_client = setup_local_client::<TestnetV0>();
     let height = api_client.latest_height().unwrap();
 
     println!("Height: {:?}", height);
@@ -196,6 +200,6 @@ fn test_new_client() {
 
 #[test]
 fn test_network_status() {
-    let status = network_status::<Testnet3>().unwrap();
+    let status = network_status::<TestnetV0>().unwrap();
     println!("Status: {:?}", status);
 }

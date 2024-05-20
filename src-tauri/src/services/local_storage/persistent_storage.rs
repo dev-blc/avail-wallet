@@ -20,7 +20,7 @@ pub fn initial_user_preferences(
 ) -> AvailResult<()> {
     let storage = PersistentStorage::new()?;
 
-    let api_client = setup_obscura_client::<Testnet3>().unwrap();
+    let api_client = setup_obscura_client::<TestnetV0>().unwrap();
 
     let latest_height = match import {
         true => 0,
@@ -507,7 +507,7 @@ fn test_get_network() {
 
 #[test]
 fn test_get_address() {
-    let address = get_address::<Testnet3>().unwrap();
+    let address = get_address::<TestnetV0>().unwrap();
 
     print!("{}", address);
 }
@@ -561,7 +561,7 @@ async fn test_timestamp_to_blockheight() {
 
     let response = client.get(query).send().await.unwrap();
     println!("{:?}", response);
-    let response: Vec<Block<Testnet3>> = response.json().await.unwrap();
+    let response: Vec<Block<TestnetV0>> = response.json().await.unwrap();
     let latest_height = response[0].height();
 
     println!("Latest height: {}", latest_height);

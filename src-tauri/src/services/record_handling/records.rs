@@ -222,7 +222,7 @@ async fn split_records<N: Network>(
 mod record_handling_test {
     use super::*;
     use crate::api::aleo_client::setup_client;
-    use snarkvm::prelude::{AleoID, Field, Testnet3};
+    use snarkvm::prelude::{AleoID, Field, TestnetV0};
     use std::str::FromStr;
 
     #[test]
@@ -230,11 +230,11 @@ mod record_handling_test {
         let start = 500527u32;
         let end = 500531u32;
 
-        let api_client = setup_client::<Testnet3>().unwrap();
+        let api_client = setup_client::<TestnetV0>().unwrap();
 
         let blocks = api_client.get_blocks(start, end).unwrap();
 
-        let tx_id = &AleoID::<Field<Testnet3>, 29793>::from_str(
+        let tx_id = &AleoID::<Field<TestnetV0>, 29793>::from_str(
             "at1w8t8pkc9xuf2p05gp9fanxpx0h53jmpguc07ja34s3jm905v65gss306rr",
         );
 
@@ -262,7 +262,7 @@ mod record_handling_test {
 
     #[test]
     fn find_aleo_credits_record_to_spend_test() {
-        let _res = find_aleo_credits_record_to_spend::<Testnet3>(&10000, vec![]).unwrap();
+        let _res = find_aleo_credits_record_to_spend::<TestnetV0>(&10000, vec![]).unwrap();
 
         println!("res: {:?}", _res);
     }
@@ -274,7 +274,7 @@ mod record_handling_test {
             .set_view_session("AViewKey1h4qXQ8kP2JT7Vo7pBuhtMrHz7R81RJUHLc2LTQfrCt3R")
             .unwrap();
 
-           handle_unconfirmed_transactions::<Testnet3>().await.unwrap();
+           handle_unconfirmed_transactions::<TestnetV0>().await.unwrap();
         }
     */
 }
