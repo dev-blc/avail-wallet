@@ -8,9 +8,10 @@ import {delete_local_for_recovery} from '../../services/recovery/phrase';
 type NewAccountDialogProperties = {
 	isOpen: boolean;
 	onRequestClose: () => void;
+	password: string;
 };
 
-const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onRequestClose}) => {
+const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onRequestClose, password}) => {
 	// Alert states
 	const [success, setSuccess] = React.useState<boolean>(false);
 	const [errorAlert, setErrorAlert] = React.useState(false);
@@ -20,7 +21,9 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 	const {t} = useTranslation();
 
 	const handleConfirmClick = () => {
-		delete_local_for_recovery('').then(() => {
+		console.log('Creating new account...');
+		console.log('Deleting local data...');
+		delete_local_for_recovery(password).then(() => {
 			navigate('/register');
 		}).catch(() => {
 			setMessage('An error occurred while creating a new account. Please try again.');
