@@ -23,7 +23,6 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 	const handleConfirmClick = () => {
 		console.log('Creating new account...');
 		console.log('Deleting local data...');
-		console.log(password);
 		delete_local_for_recovery(password).then(() => {
 			navigate('/register');
 		}).catch(() => {
