@@ -165,11 +165,6 @@ impl<N: Network> DeploymentPointer<N> {
         let flavour = EncryptedDataTypeCommon::Deployment;
         let created_at = chrono::Utc::now();
 
-        let tx_id = match &self.id {
-            Some(id) => Some(id.to_string()),
-            None => None,
-        };
-
         let encrypted_data = EncryptedData::new(
             Some(id),
             encrypt_for.to_string(),
@@ -188,8 +183,6 @@ impl<N: Network> DeploymentPointer<N> {
             Some(EventTypeCommon::Deploy),
             None,
             Some(self.state.clone()),
-            tx_id,
-            None,
         );
         Ok(encrypted_data)
     }
@@ -204,11 +197,6 @@ impl<N: Network> DeploymentPointer<N> {
         let network = get_network()?;
         let id = Uuid::new_v4();
         let flavour = EncryptedDataTypeCommon::Deployment;
-
-        let tx_id = match &record.id {
-            Some(id) => Some(id.to_string()),
-            None => None,
-        };
 
         let encrypted_data = EncryptedData::new(
             Some(id),
@@ -228,8 +216,6 @@ impl<N: Network> DeploymentPointer<N> {
             Some(EventTypeCommon::Deploy),
             None,
             Some(record.state.clone()),
-            tx_id,
-            None,
         );
         Ok(encrypted_data)
     }
