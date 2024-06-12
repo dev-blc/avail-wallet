@@ -2,9 +2,7 @@ use snarkvm::prelude::{Address, Network};
 
 use crate::models::pointers::transition::TransitionPointer;
 use crate::services::local_storage::{
-    encrypted_data::{
-        get_encrypted_data_by_flavour, get_encrypted_data_by_transition_id, store_encrypted_data,
-    },
+    encrypted_data::{get_encrypted_data_by_flavour, store_encrypted_data},
     session::view::VIEWSESSION,
 };
 
@@ -69,14 +67,6 @@ fn encrypt_and_store_transitions<N: Network>(
         .collect::<AvailResult<Vec<EncryptedData>>>()?;
 
     Ok(encrypted_transitions)
-}
-
-/// Check if a transition is stored in the local storage
-pub fn is_transition_stored(transition_id: &str) -> AvailResult<bool> {
-    match get_encrypted_data_by_transition_id(transition_id) {
-        Ok(_) => Ok(true),
-        Err(_) => Ok(false),
-    }
 }
 
 #[cfg(test)]
