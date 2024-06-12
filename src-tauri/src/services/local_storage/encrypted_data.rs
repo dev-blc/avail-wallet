@@ -50,9 +50,7 @@ pub fn initialize_encrypted_data_table() -> AvailResult<()> {
             spent BOOLEAN,
             event_type TEXT,
             record_nonce TEXT,
-            state TEXT,
-            transaction_id TEXT,
-            transition_id TEXT
+            state TEXT
         )",
     )?;
 
@@ -90,8 +88,8 @@ pub fn store_encrypted_data(data: EncryptedData) -> AvailResult<()> {
     println!("DATA in local storage =====> {:?}", data_temp.nonce);
     // get from server and sture
     storage.save_mixed(
-        vec![&id,&data.owner, &ciphertext, &nonce, &flavour,&record_type,&data.program_ids,&data.function_ids,&data.created_at,&data.updated_at,&data.synced_on,&data.network,&data.record_name,&data.spent,&event_type,&data.record_nonce,&transaction_state,&data.transaction_id,&data.transition_id],
-        "INSERT INTO encrypted_data (id,owner,ciphertext,nonce,flavour,record_type,program_ids,function_ids,created_at,updated_at,synced_on,network,record_name,spent,event_type,record_nonce,state,transaction_id,transition_id) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19)"
+        vec![&id,&data.owner, &ciphertext, &nonce, &flavour,&record_type,&data.program_ids,&data.function_ids,&data.created_at,&data.updated_at,&data.synced_on,&data.network,&data.record_name,&data.spent,&event_type,&data.record_nonce,&transaction_state],
+        "INSERT INTO encrypted_data (id,owner,ciphertext,nonce,flavour,record_type,program_ids,function_ids,created_at,updated_at,synced_on,network,record_name,spent,event_type,record_nonce,state) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)"
             .to_string(),
     )?;
 
@@ -121,8 +119,6 @@ pub fn handle_encrypted_data_query(query: &str) -> AvailResult<Vec<EncryptedData
         let event_type: Option<String> = row.get(14)?;
         let record_nonce: Option<String> = row.get(15)?;
         let transaction_state: Option<String> = row.get(16)?;
-        let transaction_id: Option<String> = row.get(17)?;
-        let transition_id: Option<String> = row.get(18)?;
 
         let id = match uuid::Uuid::parse_str(&id) {
             Ok(id) => id,
@@ -170,8 +166,6 @@ pub fn handle_encrypted_data_query(query: &str) -> AvailResult<Vec<EncryptedData
             event_type,
             record_nonce,
             transaction_state,
-            transaction_id,
-            transition_id,
         );
 
         Ok(encrypted_data)
@@ -212,8 +206,6 @@ pub fn handle_encrypted_data_query_params<T: ToSql>(
         let event_type: Option<String> = row.get(14)?;
         let record_nonce: Option<String> = row.get(15)?;
         let transaction_state: Option<String> = row.get(16)?;
-        let transaction_id: Option<String> = row.get(17)?;
-        let transition_id: Option<String> = row.get(18)?;
 
         let id = match uuid::Uuid::parse_str(&id) {
             Ok(id) => id,
@@ -260,8 +252,6 @@ pub fn handle_encrypted_data_query_params<T: ToSql>(
             event_type,
             record_nonce,
             transaction_state,
-            transaction_id,
-            transition_id,
         );
 
         Ok(encrypted_data)
@@ -296,46 +286,6 @@ pub fn get_encrypted_data_by_flavour(
 /// get encrypted data by id
 pub fn get_encrypted_data_by_id(id: &str) -> AvailResult<EncryptedData> {
     let query = format!("SELECT * FROM encrypted_data WHERE id='{}'", id);
-
-    let encrypted_data = handle_encrypted_data_query(&query)?;
-
-    if encrypted_data.len() > 0 {
-        Ok(encrypted_data[0].clone())
-    } else {
-        Err(AvailError::new(
-            AvailErrorType::Internal,
-            "Data Not Found".to_string(),
-            "Data Not Found".to_string(),
-        ))
-    }
-}
-
-/// Get encrypted data by transition id
-pub fn get_encrypted_data_by_transition_id(transition_id: &str) -> AvailResult<EncryptedData> {
-    let query = format!(
-        "SELECT * FROM encrypted_data WHERE transition_id='{:?}'",
-        Some(transition_id)
-    );
-
-    let encrypted_data = handle_encrypted_data_query(&query)?;
-
-    if encrypted_data.len() > 0 {
-        Ok(encrypted_data[0].clone())
-    } else {
-        Err(AvailError::new(
-            AvailErrorType::Internal,
-            "Data Not Found".to_string(),
-            "Data Not Found".to_string(),
-        ))
-    }
-}
-
-/// Get encrypted data by transaction id
-pub fn get_encrypted_data_by_transaction_id(transaction_id: &str) -> AvailResult<EncryptedData> {
-    let query = format!(
-        "SELECT * FROM encrypted_data WHERE transaction_id='{:?}'",
-        Some(transaction_id)
-    );
 
     let encrypted_data = handle_encrypted_data_query(&query)?;
 
@@ -624,7 +574,7 @@ pub async fn get_and_store_all_data() -> AvailResult<Data> {
 
     let data = recover_data(&address.to_string()).await?;
     let data_r = data.clone();
-    // println!("DATA IS HERE AT FIRST --> \n RP ----> {:?} \n TXN ----> {:?} \n TRN ----> {:?} \n DEPL ----> {:?}", data.record_pointers.len(), data.transactions.len(), data.transitions.len(), data.deployments.len());
+    println!("DATA IS HERE AT FIRST --> \n RP ----> {:?} \n TXN ----> {:?} \n TRN ----> {:?} \n DEPL ----> {:?}", data.record_pointers.len(), data.transactions.len(), data.transitions.len(), data.deployments.len());
 
     for encrypted_record_pointer in data.record_pointers {
         let e_r = match SupportedNetworks::from_str(&network)? {
@@ -722,41 +672,6 @@ pub fn process_private_tokens(data: Data) -> AvailResult<()> {
     }
     Ok(())
 }
-
-/// Handles migrations from old version of encrypted_data table to the new version
-#[tauri::command(rename_all = "snake_case")]
-pub fn migrate_encrypted_data() -> AvailResult<()> {
-    // this function should check if the encrypted data table already exists and has the last two columns added i.e transaction_id and transition_id
-    // if not, it should add the columns and update the data in the table
-    let storage = PersistentStorage::new()?;
-    let query = "PRAGMA table_info(encrypted_data)";
-    let mut query_statement = storage.conn.prepare(query)?;
-
-    let query_iter = query_statement.query_map([], |row| {
-        let name: String = row.get(1)?;
-
-        Ok(name)
-    })?;
-
-    let mut columns: Vec<String> = Vec::new();
-
-    for column in query_iter {
-        columns.push(column?);
-    }
-
-    if !columns.contains(&"transaction_id".to_string()) {
-        let query = "ALTER TABLE encrypted_data ADD COLUMN transaction_id TEXT";
-        storage.execute_query(query)?;
-    }
-
-    if !columns.contains(&"transition_id".to_string()) {
-        let query = "ALTER TABLE encrypted_data ADD COLUMN transition_id TEXT";
-        storage.execute_query(query)?;
-    }
-
-    Ok(())
-}
-
 #[cfg(test)]
 mod encrypted_data_tests {
     use super::*;
@@ -925,10 +840,5 @@ mod encrypted_data_tests {
         println!("{:?}", res);
 
         delete_all_server_storage().await.unwrap();
-    }
-
-    #[test]
-    fn update_migrations() {
-        migrate_encrypted_data().unwrap();
     }
 }
