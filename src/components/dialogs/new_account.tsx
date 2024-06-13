@@ -34,7 +34,6 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 			setMessage('An error occurred while creating a new account. Please try again.');
 			setErrorAlert(true);
 		});
-		
 	};
 
 	const dialogStyle = {
