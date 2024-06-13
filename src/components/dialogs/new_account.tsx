@@ -48,17 +48,6 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 			bgcolor: 'rgba(0, 255, 170, 0.1)',
 		},
 	};
-	const textFieldStyle = {
-		input: { color: 'white' },
-		label: { color: 'gray' },
-		'& label.Mui-focused': { color: '#00FFAA' },
-		'& .MuiInput-underline:after': { borderBottomColor: '#00FFAA' },
-		'& .MuiOutlinedInput-root': {
-			'& fieldset': { borderColor: 'gray' },
-			'&:hover fieldset': { borderColor: 'white' },
-			'&.Mui-focused fieldset': { borderColor: '#00FFAA' },
-		},
-	};
 
 	return (
 		<>
@@ -70,20 +59,6 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 					<mui.DialogContentText sx={{ color: '#a3a3a3' }}>
                         Are you sure you want to create a new account? This will delete the current account and all its data.
 					</mui.DialogContentText>
-
-					<mui.TextField
-						autoFocus
-						margin='dense'
-						type='password'
-						label='Type your old Password here'
-						fullWidth
-						value={password}
-						onChange={e => {
-							setPassword(e.target.value);
-						}}
-						sx={{ mt: '8%', ...textFieldStyle }}
-						required
-					/>
 
 				</mui.DialogContent>
 				<mui.DialogActions>
