@@ -28,21 +28,10 @@ const NewAccountDialog: React.FC<NewAccountDialogProperties> = ({isOpen, onReque
 	const handleConfirmClick = () => {
 		console.log('Creating new account...');
 		console.log('Deleting local data...');
-		console.log(password);
-		session_and_local_auth(password, navigate, setError, setMessage, false).then(() => {
-			setMessage(t('login.messages.success'));
-			setSuccess(true);
-			console.log('logion success');
-			delete_local_for_recovery(password).then(() => {
-				navigate('/register');
-			}).catch(() => {
-				setMessage('An error occurred while creating a new account. Please try again.');
-				setErrorAlert(true);
-			});
-		}).catch(async e => {
-			console.log(e);
-			const error = e as AvailError;
-			setMessage('Failed to authenticate, please try again.');
+		delete_local_for_recovery(password).then(() => {
+			navigate('/register');
+		}).catch(() => {
+			setMessage('An error occurred while creating a new account. Please try again.');
 			setErrorAlert(true);
 		});
 		
