@@ -338,8 +338,8 @@ pub async fn get_block_from_transaction_id<N: Network>(
 ) -> AvailResult<Block<N>> {
     let client = LocalClient::new(
         env!("TESTNET_API_OBSCURA").to_string(),
-        "https://aleo-testnet3.obscura.build".to_string(),
-        "testnet3".to_string(),
+        "https://aleo-testnetbeta.obscura.network".to_string(),
+        "testnet".to_string(),
     );
 
     let block = client
@@ -385,8 +385,8 @@ async fn owned_records_to_transitions<N: Network>(
     let api_key = env!("TESTNET_API_OBSCURA").to_string();
     let client = LocalClient::new(
         api_key,
-        "https://aleo-testnet3.obscura.build".to_string(),
-        "testnet3".to_string(),
+        "https://aleo-testnetbeta.obscura.network".to_string(),
+        "testnet".to_string(),
     );
 
     let mut res = false;
@@ -469,8 +469,8 @@ pub async fn convert_txn_to_confirmed_txn<N: Network>(
 ) -> AvailResult<ConfirmedTransaction<N>> {
     let client = LocalClient::new(
         env!("TESTNET_API_OBSCURA").to_string(),
-        "https://aleo-testnet3.obscura.build".to_string(),
-        "testnet3".to_string(),
+        "https://aleo-testnetbeta.obscura.network".to_string(),
+        "testnet".to_string(),
     );
 
     let transaction_id = transaction.id();
@@ -611,8 +611,8 @@ pub async fn get_records_new<N: Network>(start: u32, end: u32) -> AvailResult<(V
     let api_key: String = env!("OBSCURA_SDK").to_string();
     let client = LocalClient::new(
         api_key,
-        "https://aleo-testnet3.dev.obscura.build".to_string(),
-        "testnet3".to_string(),
+        "https://aleo-testnetbeta.dev.obscura.network".to_string(),
+        "testnet".to_string(),
     );
     let records = client.get_records(start, end).await?;
     Ok(records)
@@ -989,8 +989,8 @@ pub async fn public_scanning<N: Network>(
     let api_key: String = env!("OBSCURA_SDK").to_string();
     let client = LocalClient::new(
         api_key,
-        "https://aleo-testnet3.dev.obscura.build".to_string(),
-        "testnet3".to_string(),
+        "https://aleo-testnetbeta.dev.obscura.network".to_string(),
+        "testnet".to_string(),
     );
 
     // Get public transitions

@@ -552,7 +552,7 @@ async fn test_timestamp_to_blockheight() {
 
     let client = tauri_plugin_http::reqwest::Client::new();
     let query = format!(
-        "https://aleo-testnet3.obscura.network/api/{}/blocks/timestamps?start={}&end={}
+        "https://aleo-testnetbeta.obscura.network/api/{}/blocks/timestamps?start={}&end={}
     ",
         obscura_api_key,
         timestamp.timestamp(),
