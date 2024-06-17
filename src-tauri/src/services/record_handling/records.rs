@@ -774,7 +774,9 @@ async fn split_records<N: Network>(
 #[cfg(test)]
 mod record_handling_test {
     use super::*;
-    use crate::api::aleo_client::setup_client;
+    use crate::{
+        api::aleo_client::setup_client, services::local_storage::persistent_storage::get_last_sync,
+    };
     use snarkvm::prelude::{AleoID, Field, TestnetV0};
     use std::str::FromStr;
 
@@ -816,7 +818,7 @@ mod record_handling_test {
     /*
     #[test]
     fn test_nova() {
-        let _res = get_nova_records::<Testnet3>(372243).unwrap();
+        let _res = get_nova_records::<TestnetV0>(372243).unwrap();
 
         println!("res: {:?}", _res);
     }
@@ -824,12 +826,12 @@ mod record_handling_test {
 
     #[test]
     fn test_get_records() {
-        let api_client = setup_client::<Testnet3>().unwrap();
+        let api_client = setup_client::<TestnetV0>().unwrap();
 
         let latest_height = api_client.latest_height().unwrap();
         let last_sync = get_last_sync().unwrap();
 
-        let _res = get_records::<Testnet3>(last_sync, latest_height, None).unwrap();
+        let _res = get_records::<TestnetV0>(last_sync, latest_height, None).unwrap();
 
         println!("res: {:?}", _res);
     }
