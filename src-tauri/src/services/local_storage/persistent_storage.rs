@@ -58,7 +58,7 @@ pub fn initial_user_preferences(
             &"dark",
             &language.to_string_short(),
             // TODO - V2 change default to mainnet
-            &"testnet3",
+            &"testnet",
             &auth_type,
             &username,
             &tag,
