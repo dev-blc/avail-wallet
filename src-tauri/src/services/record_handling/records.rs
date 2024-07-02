@@ -69,7 +69,6 @@ pub fn get_records<N: Network>(
 
     let amount_to_scan = height.sub(last_sync);
     let latest_height = height;
-    println!("BEFORE GET BLOCK");
 
     let (last_sync_block, api_client) = match api_client.get_block(last_sync) {
         Ok(block) => (block, api_client.clone()),
@@ -91,7 +90,6 @@ pub fn get_records<N: Network>(
             }
         }
     };
-    println!("AFTER GET BLOCK \n {:?}", last_sync_block);
     let last_sync_timestamp = get_timestamp_from_i64(last_sync_block.timestamp())?;
 
     // checks if unconfirmed transactions have expired and updates their state to failed
