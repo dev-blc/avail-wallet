@@ -14,10 +14,10 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [build-dependencies]
-tauri-plugin-fs = { version = "=2.0.0-beta.7", features = [] }
-tauri-plugin = { version = "=2.0.0-beta.13", features = [] }
-tauri-utils = { version = "=2.0.0-beta.13", features = [] }
-tauri-build = { version = "=2.0.0-beta.13", features = [] }
+tauri-plugin-fs = { version = "=2.0.0-rc.0", features = [] }
+tauri-plugin = { version = "=2.0.0-rc.0", features = [] }
+tauri-utils = { version = "=2.0.0-rc.0", features = [] }
+tauri-build = { version = "=2.0.0-rc.0", features = [] }
 
 
 [dependencies]
@@ -46,11 +46,11 @@ serde_json = "1.0.120"
 snarkvm = { features = [
 ], git = "https://github.com/AleoNet/snarkVM", rev = "be171ce" }
 ssss = "0.2.0"
-tauri = { version = "2.0.0-beta.17", features = [] }
-tauri-plugin-deep-link = "=2.0.0-beta.3"
-tauri-plugin-http = { version = "2.0.0-beta.7", features = ["cookies"] }
-tauri-plugin-updater = { version = "2.0.0-beta.5", features = [] }
-tauri-plugin-process = "=2.0.0-beta.3"
+tauri = { version = "2.0.0-rc.0", features = [] }
+# tauri-plugin-deep-link = "2.0.0-beta.10"
+tauri-plugin-http = { version = "2.0.0-rc.0", features = ["cookies"] }
+tauri-plugin-updater = { version = "2.0.0-rc.0", features = [] }
+tauri-plugin-process = "2.0.0-rc.0"
 tiny-bip39 = "1.0.0"
 time = "0.3.36"
 tokio = { version = "1.29.1", features = ["full"] }
@@ -63,6 +63,7 @@ zeroize = { version = "1.7.0", features = [
     "zeroize_derive",
     "alloc",
 ] }
+# tauri-plugin-deep-link = "2.0.0-beta.3"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]
 keyring = "2.0.5"
