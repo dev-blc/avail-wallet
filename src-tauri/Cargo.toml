@@ -47,7 +47,7 @@ snarkvm = { features = [
 ], git = "https://github.com/AleoNet/snarkVM", rev = "be171ce" }
 ssss = "0.2.0"
 tauri = { version = "2.0.0-rc.0", features = [] }
-# tauri-plugin-deep-link = "2.0.0-beta.10"
+tauri-plugin-deep-link = "=2.0.0-rc.0"
 tauri-plugin-http = { version = "2.0.0-rc.0", features = ["cookies"] }
 tauri-plugin-updater = { version = "2.0.0-rc.0", features = [] }
 tauri-plugin-process = "2.0.0-rc.0"
@@ -63,6 +63,7 @@ zeroize = { version = "1.7.0", features = [
     "zeroize_derive",
     "alloc",
 ] }
+# tauri-plugin-deep-link = "0.1.2"
 # tauri-plugin-deep-link = "2.0.0-beta.3"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies]

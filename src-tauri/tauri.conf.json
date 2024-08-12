@@ -34,7 +34,21 @@
             "avail://"
           ]
         }
-      ]
+      ],
+      "mobile": [
+        {
+          "host": "com.avail.wallet",
+          "pathPrefix": [
+            "avail://"
+          ]
+        }
+      ],
+      "desktop": {
+        "schemes": [
+          "avail://",
+          "com.avail.wallet"
+        ]
+      }
     }
   },
   "app": {
