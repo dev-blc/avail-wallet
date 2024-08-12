@@ -17,7 +17,7 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "createUpdaterArtifacts": true
+    "createUpdaterArtifacts": "v1Compatible"
   },
   "plugins": {
     "updater": {
@@ -34,7 +34,22 @@
             "avail://"
           ]
         }
-      ]
+      ],
+      "mobile": [
+        {
+          "host": "com.avail.wallet",
+          "pathPrefix": [
+            "avail://"
+          ]
+        }
+      ],
+      "desktop": {
+        "schemes": [
+          "avail://",
+          "com.avail.wallet",
+          "avail"
+        ]
+      }
     }
   },
   "app": {
