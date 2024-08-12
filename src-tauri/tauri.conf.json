@@ -46,7 +46,8 @@
       "desktop": {
         "schemes": [
           "avail://",
-          "com.avail.wallet"
+          "com.avail.wallet",
+          "avail"
         ]
       }
     }
