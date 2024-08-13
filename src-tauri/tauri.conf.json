@@ -21,6 +21,7 @@
   },
   "plugins": {
     "updater": {
+      "createUpdaterArtifacts": "v1Compatible",
       "endpoints": [
         "https://api.avail.global/release/latest"
       ],
