@@ -16,7 +16,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": "all",
+    "targets": [
+      "deb",
+      "appimage",
+      "dmg",
+      "msi",
+      "nsis",
+      "app",
+      "rpm",
+      "updater"
+    ],
     "createUpdaterArtifacts": "true"
   },
   "plugins": {
