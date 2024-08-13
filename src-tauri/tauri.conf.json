@@ -17,11 +17,11 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "createUpdaterArtifacts": "v1Compatible"
+    "createUpdaterArtifacts": "true"
   },
   "plugins": {
     "updater": {
-      "createUpdaterArtifacts": "v1Compatible",
+      "createUpdaterArtifacts": "true",
       "endpoints": [
         "https://api.avail.global/release/latest"
       ],
