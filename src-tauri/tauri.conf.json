@@ -17,11 +17,11 @@
       "icons/icon.ico"
     ],
     "targets": "all",
-    "createUpdaterArtifacts": "false"
+    "createUpdaterArtifacts": "v1Compatible"
   },
   "plugins": {
     "updater": {
-      "createUpdaterArtifacts": "false",
+      "createUpdaterArtifacts": "v1Compatible",
       "endpoints": [
         "https://api.avail.global/release/latest"
       ],
@@ -46,9 +46,10 @@
       ],
       "desktop": {
         "schemes": [
+          "avail",
+          "wallet",
           "avail://",
-          "com.avail.wallet",
-          "avail"
+          "com.avail.wallet"
         ]
       }
     }
