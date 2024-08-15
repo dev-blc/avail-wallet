@@ -16,11 +16,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "targets": "all",
-    "createUpdaterArtifacts": "v1Compatible",
-    "macOS": {
-      "signingIdentity": "WTK34UZPZK"
-    }
+    "targets": "all"
   },
   "plugins": {
     "updater": {
